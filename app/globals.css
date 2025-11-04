@@ -10,6 +10,13 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  /* Math rendering styles */
+  --color-math: #1e40af;
+  --color-user-message: #3b82f6;
+  --color-assistant-message: #f3f4f6;
+  --color-error: #dc2626;
+  --color-success: #16a34a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,4 +30,33 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Math Tutor Custom Styles */
+.message-user {
+  @apply bg-blue-500 text-white rounded-lg p-3 ml-8 max-w-md self-end;
+}
+
+.message-assistant {
+  @apply bg-gray-100 text-gray-900 rounded-lg p-3 mr-8 max-w-lg self-start;
+}
+
+.math-renderer {
+  @apply text-blue-700 font-medium;
+}
+
+.math-fallback {
+  @apply bg-gray-100 text-gray-800 font-mono text-sm px-2 py-1 rounded;
+}
+
+.loading-dots {
+  @apply text-gray-500;
+}
+
+.error-message {
+  @apply bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded;
+}
+
+.success-message {
+  @apply bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded;
 }

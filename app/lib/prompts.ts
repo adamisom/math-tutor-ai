@@ -1,0 +1,225 @@
+/**
+ * Socratic Math Tutor Prompts
+ * 
+ * This file contains the system prompts and prompt utilities for the AI math tutor.
+ * The prompts are designed to enforce Socratic methodology - never giving direct answers,
+ * always guiding through questions.
+ */
+
+export interface PromptContext {
+  problemText?: string;
+  conversationLength?: number;
+  studentLevel?: 'elementary' | 'middle' | 'high' | 'auto';
+  isStuck?: boolean;
+}
+
+/**
+ * Base Socratic System Prompt - Tested and refined for optimal performance
+ */
+export const SOCRATIC_SYSTEM_PROMPT = `You are a patient and encouraging math tutor who uses Socratic questioning to guide students.
+
+CRITICAL RULES (NEVER VIOLATE):
+1. NEVER give direct answers to problems
+2. NEVER state solutions like "x = 4" or "the answer is"
+3. NEVER show step-by-step solutions
+4. Guide through questions that help students discover solutions
+5. If student is stuck for 2+ turns, provide a concrete hint (not the answer)
+
+SOCRATIC METHOD:
+- Start: "What do we know?" "What are we trying to find?"
+- Method: "What approach might help?" "What operation do we see?"
+- Process: "How do we undo that?" "What happens when we..."
+- Validate: "Exactly!" "Great thinking!" "You're on the right track!"
+- Hints: "Here's a hint: [specific guidance, not solution]"
+
+TONE & LANGUAGE:
+- Encouraging: "Excellent!" "Nice work!" "You've got this!"
+- Patient: "No worries, let's think about this together"
+- Celebratory: "Great job figuring that out!"
+- Never: "Wrong", "No", "Incorrect" - instead "Not quite, but..."
+
+CONTEXT:
+- This is a single problem session
+- Focus entirely on the current problem
+- No need to reference previous problems`;
+
+/**
+ * Enhanced prompt with problem context injection
+ */
+export function getSocraticPrompt(context: PromptContext = {}): string {
+  let prompt = SOCRATIC_SYSTEM_PROMPT;
+  
+  // Add problem-specific context
+  if (context.problemText) {
+    prompt += `\n\nCurrent problem: ${context.problemText}`;
+  }
+  
+  // Add level-specific adjustments
+  if (context.studentLevel) {
+    switch (context.studentLevel) {
+      case 'elementary':
+        prompt += `\n\nADJUSTMENTS FOR ELEMENTARY LEVEL:
+- Use simple language and smaller steps
+- Use concrete examples: "If you have 5 cookies and eat 2..."
+- Ask simpler questions: "What number comes after 7?"
+- Give more encouragement after every correct step
+- Avoid terms like "variable" - use "mystery number" instead`;
+        break;
+        
+      case 'middle':
+        prompt += `\n\nADJUSTMENTS FOR MIDDLE SCHOOL:
+- Balance guidance with building independence
+- Introduce proper mathematical terminology gradually
+- Connect to real-world examples when possible
+- Encourage multiple solution methods: "Can you think of another way?"`;
+        break;
+        
+      case 'high':
+        prompt += `\n\nADJUSTMENTS FOR HIGH SCHOOL:
+- Expect more mathematical maturity and independence
+- Ask broader strategic questions: "What's your plan for approaching this?"
+- Connect to mathematical concepts and reasoning
+- Allow longer thinking time before providing hints`;
+        break;
+    }
+  }
+  
+  // Add stuck student guidance
+  if (context.isStuck) {
+    prompt += `\n\nSTUDENT APPEARS STUCK:
+- Provide a concrete hint that moves them one step forward
+- Break down the current step into smaller pieces
+- Ask a more specific guiding question
+- Example: "Let's focus just on the first part. What operation do you see here?"`;
+  }
+  
+  return prompt;
+}
+
+/**
+ * Prompt validation patterns to detect direct answers
+ */
+export const DIRECT_ANSWER_PATTERNS = [
+  // Direct numerical answers
+  /(?:the )?answer is[:\s]/i,
+  /(?:x|y|z)\s*(?:=|equals)\s*[\d\-]/,
+  /(?:solution is|result is)/i,
+  
+  // Step-by-step solutions  
+  /step \d+:.*[\d\-]+\s*$/i,
+  /first[,\s]+.*=.*\d/i,
+  /then[,\s]+.*=.*\d/i,
+  
+  // Conclusion phrases with answers
+  /therefore[,\s]+.+[\d\-]+/i,
+  /so[,\s]+(?:x|y|z|the answer).+[\d\-]+/i,
+  /which gives us[,\s]+.*[\d\-]+/i,
+  
+  // Common direct answer formats
+  /^.{0,20}[\d\-]+\s*$/i, // Very short responses that are just numbers
+  /the value of \w+ is \d+/i,
+];
+
+/**
+ * Validate if a response follows Socratic methodology
+ */
+export function validateSocraticResponse(
+  response: string, 
+  context: PromptContext = {}
+): { valid: boolean; reason?: string; confidence: number } {
+  
+  // Check for direct answer patterns
+  for (const pattern of DIRECT_ANSWER_PATTERNS) {
+    if (pattern.test(response)) {
+      return {
+        valid: false,
+        reason: `Response contains direct answer pattern: ${pattern.source}`,
+        confidence: 0.9
+      };
+    }
+  }
+  
+  // Check if response lacks questions (should guide, not tell)
+  const hasQuestions = /\?/.test(response);
+  const isVeryShort = response.length < 50;
+  
+  if (!hasQuestions && !isVeryShort) {
+    return {
+      valid: false,
+      reason: "Response lacks guiding questions - may be too directive",
+      confidence: 0.7
+    };
+  }
+  
+  // Check for encouraging language
+  const encouragingPatterns = [
+    /great|excellent|good|nice|perfect|exactly/i,
+    /you('re| are) (on track|doing well|right)/i,
+    /that's (right|correct|good)/i
+  ];
+  
+  const hasEncouragement = encouragingPatterns.some(pattern => pattern.test(response));
+  
+  // Check for discouraging language (red flags)
+  const discouragingPatterns = [
+    /\b(wrong|no|incorrect|bad|stupid)\b/i,
+    /that's not right/i,
+    /try again/i
+  ];
+  
+  const hasDiscouragement = discouragingPatterns.some(pattern => pattern.test(response));
+  
+  if (hasDiscouragement) {
+    return {
+      valid: false,
+      reason: "Response contains discouraging language",
+      confidence: 0.8
+    };
+  }
+  
+  // Calculate overall confidence
+  let confidence = 0.8;
+  if (hasQuestions) confidence += 0.1;
+  if (hasEncouragement) confidence += 0.1;
+  
+  return {
+    valid: true,
+    confidence: Math.min(confidence, 1.0)
+  };
+}
+
+/**
+ * Generate a stricter prompt when regeneration is needed
+ */
+export function getStricterSocraticPrompt(originalPrompt: string, failureReason: string): string {
+  return `${originalPrompt}
+
+IMPORTANT: Your previous response was rejected because: ${failureReason}
+
+REGENERATION REQUIREMENTS:
+- Be extra careful to ask questions instead of stating facts
+- Never give away any part of the solution
+- Focus on guiding the student's thinking process
+- Use phrases like "What do you think..." or "How might we..."
+- Celebrate the student's efforts and thinking, not results`;
+}
+
+/**
+ * Extract current problem from conversation context
+ */
+export function extractProblemFromMessages(messages: any[]): string {
+  // Look for the most recent problem in user messages
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === 'user' && (
+      msg.content.includes('problem:') || 
+      msg.content.includes('solve') ||
+      msg.content.includes('=') ||
+      /\d+[x-z]/.test(msg.content) // Simple math pattern
+    )) {
+      return msg.content;
+    }
+  }
+  return '';
+}
+

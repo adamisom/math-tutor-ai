@@ -1,0 +1,108 @@
+# AI Math Tutor - Cursor AI Ignore Rules
+# This file tells Cursor which files to ignore when indexing and providing AI suggestions
+# Focus: Performance optimization and relevance for AI coding assistance
+
+# ============================================================================
+# Large Dependencies (Performance Impact)
+# ============================================================================
+node_modules/
+.yarn/
+.pnp/
+
+# ============================================================================
+# Build Outputs & Generated Files (Not Source Code)
+# ============================================================================
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# ============================================================================
+# Binary Files & Media (Not Code)
+# ============================================================================
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.svg
+*.ico
+*.pdf
+*.mp4
+*.mp3
+*.wav
+
+# ============================================================================
+# Logs & Temporary Files (Noise)
+# ============================================================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ============================================================================
+# Testing Output (Generated Reports)
+# ============================================================================
+coverage/
+test-results/
+playwright-report/
+
+# ============================================================================
+# OS & IDE Artifacts (Not Project Code)
+# ============================================================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ============================================================================
+# AI/ML Large Files (Future Proofing)
+# ============================================================================
+*.pkl
+*.h5
+*.pb
+models/
+training-data/
+*.bin
+*.model
+
+# ============================================================================
+# What Cursor SHOULD Index (Examples - Do Not Ignore)
+# ============================================================================
+# .env.example          - Helps understand environment setup
+# package.json          - Critical for understanding dependencies
+# tsconfig.json         - Important for TypeScript understanding  
+# tailwind.config.*     - Important for styling context
+# next.config.*         - Important for Next.js setup
+# README.md             - Project documentation
+# *.md files            - Project documentation
+# app/**/*.tsx          - Source code
+# app/**/*.ts           - Source code
+# components/**/*       - Source code
+# lib/**/*              - Source code
+
+# ============================================================================
+# Project-Specific Ignores
+# ============================================================================
+# Large test images that would slow down indexing
+/public/test-images/large-*
+/public/test-images/*.jpg
+/public/test-images/*.png
+
+# Temporary development files
+temp/
+tmp/
+*.tmp
+
+# Future conversation logs (if implemented)
+/logs/conversations/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.vercel/
+.netlify/
+
