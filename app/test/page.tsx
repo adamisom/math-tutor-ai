@@ -701,29 +701,36 @@ const STORAGE_KEY = 'math-tutor-test-results';
 
 export default function TestPage() {
   const [selectedProblem, setSelectedProblem] = useState<TestProblem | null>(null);
-  // Initialize state from localStorage using function initializer
-  const [testResults, setTestResults] = useState<Record<string, 'pass' | 'fail' | 'pending'>>(() => {
+  // Initialize with empty object to avoid hydration mismatch
+  // Load from localStorage only on client side after mount
+  const [testResults, setTestResults] = useState<Record<string, 'pass' | 'fail' | 'pending'>>({});
+  const [savingResult, setSavingResult] = useState<string | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Load test results from localStorage on client mount only
+  useEffect(() => {
+    setIsClient(true);
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        setTestResults(parsed);
       }
     } catch (error) {
       console.warn('Failed to load test results from localStorage:', error);
     }
-    return {};
-  });
-  const [savingResult, setSavingResult] = useState<string | null>(null);
-  const [copiedText, setCopiedText] = useState<string | null>(null);
+  }, []);
 
-  // Save test results to localStorage whenever they change
+  // Save test results to localStorage whenever they change (only on client)
   useEffect(() => {
+    if (!isClient) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(testResults));
     } catch (error) {
       console.warn('Failed to save test results to localStorage:', error);
     }
-  }, [testResults]);
+  }, [testResults, isClient]);
 
   const handleProblemSelect = (problem: TestProblem) => {
     setSelectedProblem(problem);
@@ -966,7 +973,7 @@ export default function TestPage() {
               >
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="font-semibold text-gray-900">{problem.type}</h3>
-                  {result && (
+                  {isClient && result && (
                     <div className="flex-shrink-0">
                       {result === 'pass' ? (
                         <CheckCircle className="w-5 h-5 text-green-500" />
