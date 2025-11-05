@@ -410,22 +410,295 @@ Another excellent example of Socratic tutoring. Claude successfully guided the s
 
 ---
 
+## Test Problem 3: Word Problem (Variable Assignment)
+
+**Problem:** Sarah has 3 times as many apples as John. Together they have 24 apples. How many does John have?
+
+**Type:** Word Problem (Variable Assignment)
+
+**Full Conversation:**
+```
+User: Sarah has 3 times as many apples as John. Together they have 24 apples. How many does John have?
+
+Claude: Great problem! Let's work through this together. 🍎
+
+Let me start by asking you: **What information do we know from the problem?**
+
+Take a look at what the problem tells us about:
+
+- Sarah's apples compared to John's apples
+
+- The total number of apples they have together
+
+What can you tell me about these two pieces of information?
+
+User: Sarah has more apples, 3 times as many in fact (poor John!)
+
+Claude: Exactly! Sarah definitely has more apples than John - 3 times as many! 😄
+
+So we know:
+
+- Sarah has 3 times as many apples as John
+
+- Together they have 24 apples total
+
+Now here's my next question: **If we called John's apples some unknown amount, how could we describe Sarah's apples in terms of John's apples?**
+
+Think about that relationship - if John has a certain number, and Sarah has 3 times that amount, how would you express that?
+
+User: What do you mean describe Sarah's apples in terms of John's apples
+
+Claude: Great question! Let me clarify what I mean.
+
+Let's say John has some number of apples - we don't know how many yet, but it's some amount.
+
+**If John has that unknown amount, and Sarah has 3 times as many as John, how many does Sarah have?**
+
+For example, if John had 5 apples (just as an example), how many would Sarah have? 
+
+That relationship - that's what I mean by "in terms of John's apples." We're describing Sarah's amount based on whatever John has.
+
+Does that help clarify what I'm asking?
+
+User: I'm confused. If John has unknown amount of apples then how do we know how many apples Sarah has?
+
+Claude: Excellent question! You're thinking really carefully about this.
+
+You're right - we don't know the *exact number* yet. But we DO know the *relationship* between them.
+
+Let me ask it this way: **If John has 5 apples, how many does Sarah have?**
+
+And then: **If John has 10 apples, how many does Sarah have?**
+
+Once you answer those, you'll see the pattern of how Sarah's amount connects to John's amount, even when we don't know the exact number yet!
+
+What do you get for those two examples?
+
+User: okay if John has 5 apples I still don't know how many Sarah has
+
+Claude: No worries! Let's go back to what the problem told us.
+
+The problem says: **"Sarah has 3 times as many apples as John."**
+
+So if John has 5 apples, and Sarah has **3 times** as many as John...
+
+**What does "3 times as many" mean? What operation would we use?**
+
+Think about what "3 times" tells us to do with John's number.
+
+User: oh right. uh 3 times 5 is 15
+
+Claude: Exactly! Nice work! 🎉
+
+So if John has 5 apples, Sarah has 3 × 5 = 15 apples.
+
+Now here's the key insight: **No matter how many apples John has, what do we do to find out how many Sarah has?**
+
+We always multiply John's amount by 3, right?
+
+So here's my next question: **If we add John's apples and Sarah's apples together, what should we get?**
+
+(Hint: Look back at what the problem tells us about their total!)
+
+User: okay yeah we always multiply by 3
+
+Claude: Perfect! You've got that relationship down! 👍
+
+Now let's use that. You said we always multiply John's amount by 3 to get Sarah's amount.
+
+So let me ask again: **If we add John's apples and Sarah's apples together, what total should we get?**
+
+What does the problem say about how many apples they have combined?
+
+User: the total would be all of three times John's apples
+
+Claude: Hmm, not quite, but let's think about this carefully.
+
+If John has some apples, and Sarah has 3 times John's apples, then together they have:
+
+- John's apples PLUS Sarah's apples
+
+**What does the problem tell us that total equals?**
+
+Look back at the second sentence of the problem. What number do they have together?
+
+User: oh right, plus... okay so John has 3 times as many so the total is John's number plus 1/3 of John's number
+
+Claude: I see what you're thinking, but let's be careful here!
+
+Let me ask you this: **Who has MORE apples - John or Sarah?**
+
+And the problem says "Sarah has 3 times as many apples as John."
+
+So if Sarah has 3 times as many as John, that means:
+
+- Sarah's amount = 3 × John's amount
+
+**So when we add them together, we're adding John's amount PLUS what?**
+
+(Remember: Sarah has 3 times John's amount, not the other way around!)
+
+User: Sarah has more apples
+
+Claude: Yes, exactly! Sarah has more apples. 
+
+So let's put this together step by step:
+
+- John has some amount (let's call it his amount)
+
+- Sarah has **3 times** John's amount
+
+**So if we're adding them together, we have:**
+
+- John's amount + Sarah's amount
+
+- Which is: John's amount + (3 times John's amount)
+
+**Now, if John has his amount, and Sarah has 3 times that same amount, how many "John amounts" do they have in total?**
+
+Think about it: 1 John amount + 3 John amounts = ?
+
+User: Oh okay I see
+
+Claude: Awesome! So you're seeing that together they have 4 times John's amount!
+
+Now here's where it all comes together:
+
+**If 4 times John's amount equals the total they have together, and we know the total is 24 apples...**
+
+**What equation can we write, and how can we figure out John's amount?**
+
+What do you think?
+
+User: okay so 4 times John's amount equals 24
+
+Claude: Perfect! You've got it! 🎉
+
+So we have: **4 times John's amount = 24**
+
+Now here's the final step: **How can we figure out what John's amount is?**
+
+If 4 times something equals 24, what operation would help us find that "something"?
+
+User: hmm I think if we divide both by 4
+
+Claude: Excellent thinking! That's exactly right! 👏
+
+**So if we divide both sides by 4, what do we get for John's amount?**
+
+Go ahead and do that calculation!
+
+User: 6!
+
+Claude: YES! Fantastic work! 🎉🎉🎉
+
+John has **6 apples**!
+
+Let's just double-check your answer to make sure it works:
+
+- If John has 6 apples, how many does Sarah have?
+
+- And what's their total?
+
+Does it all check out?
+
+User: Sarah has 18 apples! and the total is 6 + 18... 24!
+
+Claude: Perfect! You absolutely nailed it! 🎉🍎
+
+John has 6 apples, Sarah has 18 apples, and together they have 24! Everything checks out beautifully!
+
+You did an amazing job working through this problem. You:
+
+- Figured out the relationship between their amounts
+
+- Set up the equation with 4 times John's amount
+
+- Solved for John's apples
+
+- Checked your answer
+
+Great mathematical thinking! You should be really proud of how you worked through that! 🌟
+```
+
+**Evaluation Notes:**
+- [x] Socratic methodology maintained
+- [x] No direct answers given (guided to solution)
+- [x] Appropriate question guidance
+- [x] Encouraging language used
+- [x] Student reached solution independently
+
+**AI Evaluation Score:** 8.5/10
+
+**Evaluator:** Auto (Cursor AI Assistant)
+**Model:** GPT-4 (via Cursor)
+**Evaluation Date:** 2025-01-XX
+
+**Detailed Evaluation:**
+
+**Strengths:**
+1. **Strong Socratic Methodology (9/10):** Claude maintained excellent Socratic questioning throughout this complex word problem. Never gave direct answers, patiently guided through the challenging concept of variable relationships. The student struggled initially with understanding "in terms of" but Claude clarified with examples.
+
+2. **Excellent Question Quality (8.5/10):** Questions were well-structured and adaptive:
+   - Started with "What information do we know?" (foundational)
+   - Progressed to relationship identification (challenging for word problems)
+   - Used concrete examples (5 apples) to build understanding
+   - Patiently addressed confusion when student misunderstood (thought John had 3 times Sarah's amount)
+   - Guided to equation setup
+   - Minor note: The "in terms of" phrasing was initially confusing - could have used simpler language like "If John has x apples, how many does Sarah have?"
+
+3. **Excellent Encouragement (10/10):** Consistently positive despite student confusion:
+   - "Exactly! Sarah definitely has more apples than John - 3 times as many! 😄"
+   - "Exactly! Nice work! 🎉"
+   - "Perfect! You've got that relationship down! 👍"
+   - "Awesome! So you're seeing that together they have 4 times John's amount!"
+   - "YES! Fantastic work! 🎉🎉🎉"
+   - "Perfect! You absolutely nailed it! 🎉🍎"
+   - Zero discouraging language, even when student was confused
+
+4. **Problem-Solving Effectiveness (8.5/10):** Student successfully:
+   - Identified the relationship (after clarification)
+   - Understood variable relationships (with help)
+   - Set up the equation correctly
+   - Solved the equation
+   - Verified the answer
+   - Required more guidance than previous problems due to word problem complexity
+
+**Areas for Improvement:**
+- The initial question "describe Sarah's apples in terms of John's apples" was too abstract for the student. Could have started with simpler language: "If John has x apples, how many does Sarah have?" or "Let's say John has some number of apples - if Sarah has 3 times as many, how would we write that?"
+- The student showed confusion multiple times (good that Claude addressed it, but could have anticipated the need for simpler language)
+
+**Comparison to Previous Tests:**
+This was the most challenging conversation (18 turns vs 8-14 for previous problems) due to the abstract nature of variable relationships in word problems. The student struggled more initially but eventually succeeded. Claude showed excellent patience and adaptability in addressing confusion.
+
+**Overall Assessment:**
+This conversation demonstrates strong Socratic tutoring for a complex word problem. Claude successfully guided a student through the challenging concept of variable relationships and equation setup without giving direct answers. The initial abstract phrasing caused some confusion, but Claude adapted well with concrete examples. The student eventually reached the solution independently and showed deep understanding by verifying the answer.
+
+**Breakdown:**
+- Socratic Methodology: 9/10
+- Question Quality: 8.5/10
+- Encouragement Level: 10/10
+- Problem-Solving Effectiveness: 8.5/10
+
+---
+
 ## Summary Statistics
 
-**Total Problems Tested:** 2
+**Total Problems Tested:** 3
 
-**Total Conversations:** 2
+**Total Conversations:** 3
 
-**Average Turns per Problem:** 11 turns (22 messages average)
+**Average Turns per Problem:** 13.3 turns (26.6 messages average)
 
 **Socratic Methodology Success Rate:** 100%
 
 **Issues Found:**
-- None identified - both tests successful
+- None identified - all tests successful
 
 **Improvements Needed:**
 - Consider adding more follow-up questions before gentle corrections (minor)
 - Could ask intermediate step questions before asking final answer (minor)
+- For word problems: Use simpler language initially ("If John has x apples...") instead of abstract phrasing ("describe in terms of")
 
 ---
 
@@ -435,10 +708,10 @@ Another excellent example of Socratic tutoring. Claude successfully guided the s
 **Evaluator Model:** GPT-4 (via Cursor)  
 **Evaluation Date:** 2025-01-XX
 
-**Overall Score:** 9.25/10 (average of 9.5 and 9.0)
+**Overall Score:** 9.0/10 (average of 9.5, 9.0, and 8.5)
 
 **Summary:**
-Both test problems demonstrate exceptional Socratic tutoring quality. Claude consistently maintained perfect adherence to Socratic methodology, never giving direct answers while successfully guiding the student to solutions. The first problem featured creative analogies (socks/shoes) that were particularly effective for teaching order of operations. The second problem showed the student's growing confidence and understanding. Encouraging language was consistent throughout both conversations, and the student reached solutions independently in both cases.
+All three test problems demonstrate exceptional Socratic tutoring quality. Claude consistently maintained perfect adherence to Socratic methodology, never giving direct answers while successfully guiding the student to solutions. The first problem featured creative analogies (socks/shoes) that were particularly effective for teaching order of operations. The second problem showed the student's growing confidence and understanding. The third problem (word problem) was the most challenging, requiring more guidance due to abstract variable relationship concepts, but Claude showed excellent patience and adaptability in addressing student confusion.
 
 **Test Problem 1 Highlights:**
 - Creative analogies (socks/shoes) for order of operations
@@ -450,11 +723,17 @@ Both test problems demonstrate exceptional Socratic tutoring quality. Claude con
 - Student showed increased confidence
 - Strong multi-step problem solving
 
+**Test Problem 3 Highlights:**
+- Most challenging (word problem with variable relationships)
+- Longest conversation (18 turns) due to student confusion
+- Excellent patience and adaptability
+- Minor improvement: Could use simpler initial language for abstract concepts
+
 **Breakdown (Average):**
-- Socratic Methodology: 9.75/10
-- Question Quality: 9.25/10
+- Socratic Methodology: 9.5/10
+- Question Quality: 9.0/10
 - Encouragement Level: 10/10
-- Problem-Solving Effectiveness: 9.25/10
+- Problem-Solving Effectiveness: 9.0/10
 
 ---
 
