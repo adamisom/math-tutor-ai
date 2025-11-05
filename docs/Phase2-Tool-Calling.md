@@ -103,6 +103,86 @@ See `docs/Phase2-Manual-Testing-Guide.md` for:
    - 20-attempt threshold implemented
    - Prompt guidance added
 
+## Troubleshooting & Future Adjustments
+
+### maxSteps Configuration
+
+**Current Value:** `maxSteps: 5`
+
+**What it does:**
+- Controls how many "rounds" Claude can take in a single response
+- Each step can be: a tool call, processing a tool result, or generating text
+- Without `maxSteps` (or with `maxSteps: 1`), Claude stops after calling a tool and doesn't generate the Socratic response
+
+**Typical Flow:**
+1. Step 1: Student provides answer → Claude calls `verify_equation_solution`
+2. Step 2: Tool returns result → Claude processes it
+3. Step 3: Claude generates Socratic response based on tool result
+
+**When to Increase:**
+Consider increasing `maxSteps` to 7-10 if you observe:
+- Claude stops before completing responses (tool executes but no text follows)
+- Complex problems requiring multiple tool calls in one response
+- Multi-part student answers needing multiple verifications
+- Students providing partial solutions that need step-by-step verification
+
+**How to Change:**
+Edit `app/api/chat/route.ts`, line 120:
+```typescript
+maxSteps: 7, // or 10 for complex problems
+```
+
+**Trade-offs:**
+- **Higher values (7-10):**
+  - ✅ Handles complex multi-step interactions
+  - ✅ Allows multiple tool calls per response
+  - ❌ Increased latency (each step is a round-trip to Anthropic)
+  - ❌ Higher API costs (more tokens per interaction)
+  - ❌ More complexity to debug
+  
+- **Lower values (3-4):**
+  - ✅ Faster responses
+  - ✅ Lower API costs
+  - ❌ May cut off responses prematurely
+  - ❌ Can't handle complex multi-tool scenarios
+
+**Recommendation:** Start with 5, monitor during testing, increase only if needed for specific use cases.
+
+### Empty/Stuck Responses
+
+**Symptoms:**
+- Tool executes successfully (logs show `[Tool Call]` and `[Tool Result]`)
+- But no chatbot response appears in UI
+
+**Possible Causes:**
+1. **maxSteps too low** - Claude stops after tool call without generating text
+   - **Solution:** Increase `maxSteps` to 5 or higher
+   
+2. **Streaming error** - Network issue or stream interruption
+   - **Check:** Browser console and server logs for errors
+   - **Solution:** Check network connectivity, retry request
+
+3. **Tool execution error** - Tool fails silently
+   - **Check:** Server logs for `[Tool Result]` errors
+   - **Solution:** Verify tool implementation, check nerdamer compatibility
+
+**Debugging:**
+- Check server console for `[Tool Call]` and `[Tool Result]` logs
+- Check browser console for fetch/streaming errors
+- Verify `maxSteps` is set appropriately (minimum 5)
+
+### Tool Calls Not Appearing in Conversation
+
+**Current Behavior:**
+- Tool calls are logged to server console (development mode)
+- Tool calls are NOT automatically injected into conversation UI
+- For testing: Copy tool call info from server logs manually
+
+**Future Enhancement:**
+- Inject tool calls into conversation stream for testing
+- Format with clear markers: `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+- Only in development mode (not production)
+
 ## Future Improvements
 
 1. **Server-Side Attempt Tracking**: Move to database for anti-cheating
@@ -110,6 +190,7 @@ See `docs/Phase2-Manual-Testing-Guide.md` for:
 3. **Enhanced Tool Results**: Better handling of equivalent mathematical forms
 4. **Word Problem Extraction**: Improve equation extraction from word problems
 5. **Performance Optimization**: Cache tool results for repeated problems
+6. **Tool Call Injection**: Add tool call info to conversation stream in development mode
 
 ## Dependencies
 - `nerdamer`: Symbolic math library for verification

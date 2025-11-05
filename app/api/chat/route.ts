@@ -117,6 +117,13 @@ export async function POST(req: NextRequest) {
         messages: validMessages,
         tools: mathVerificationTools,
         toolChoice: 'auto', // Claude decides when to call tools
+        // maxSteps: Controls how many "rounds" Claude can take in a single response.
+        // Each step can be: a tool call, processing a tool result, or generating text.
+        // Typical flow: (1) Call verification tool, (2) Process tool result, (3) Generate Socratic response
+        // Increased to 7 to ensure Claude always generates text after tool calls.
+        // If Claude still stops after tool calls, increase further to 10.
+        // Downsides of higher values: Increased latency, higher API costs, more complexity
+        maxSteps: 7,
       });
       
       // Log tool usage in development
@@ -133,75 +140,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Only inject tool calls in development mode (for testing/logging)
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    if (isDevelopment) {
-      // Track tool calls for this request
-      const requestId = getRequestId();
-      toolCallStore.set(requestId, []);
+    // Return standard streaming response (works in both dev and production)
+    try {
+      const response = result.toTextStreamResponse();
       
-      // Use fullStream to capture tool calls and inject them into the response
-      const encoder = new TextEncoder();
-      let toolCallInfo = '';
-      let toolCallInfoSent = false;
+      // Log in development to track streaming
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Stream] Response created, returning to client');
+      }
       
-      // Create a custom stream that includes tool call information
-      const stream = new ReadableStream({
-        async start(controller) {
-          try {
-            // Read from fullStream to capture tool calls
-            for await (const chunk of result.fullStream) {
-              // Handle tool call events
-              if (chunk.type === 'tool-call') {
-                const toolName = chunk.toolName;
-                const args = chunk.args;
-                toolCallInfo += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-                toolCallInfo += `[TOOL CALL] ${toolName}\n`;
-                toolCallInfo += `Arguments: ${JSON.stringify(args, null, 2)}\n`;
-              } else if (chunk.type === 'tool-result') {
-                const toolName = chunk.toolName;
-                const result = chunk.result;
-                toolCallInfo += `[TOOL RESULT] ${toolName}\n`;
-                toolCallInfo += `Result: ${JSON.stringify(result, null, 2)}\n`;
-                toolCallInfo += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-              } else if (chunk.type === 'text-delta') {
-                // If we have tool call info, prepend it before the first text
-                if (toolCallInfo && !toolCallInfoSent) {
-                  controller.enqueue(encoder.encode(toolCallInfo));
-                  toolCallInfoSent = true;
-                }
-                // Forward text deltas
-                controller.enqueue(encoder.encode(chunk.textDelta));
-              } else if (chunk.type === 'text') {
-                // Full text chunk
-                if (toolCallInfo && !toolCallInfoSent) {
-                  controller.enqueue(encoder.encode(toolCallInfo));
-                  toolCallInfoSent = true;
-                }
-                controller.enqueue(encoder.encode(chunk.text));
-              }
-            }
-          } catch (error) {
-            console.error('Stream error:', error);
-          } finally {
-            // Clean up
-            toolCallStore.delete(requestId);
-            controller.close();
-          }
-        }
-      });
-
-      // Return the custom stream with tool call info (development only)
-      return new Response(stream, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-        },
-      });
+      return response;
+    } catch (streamError) {
+      console.error('[Stream Error] Failed to create stream response:', streamError);
+      throw streamError;
     }
-
-    // Production: Return normal streaming response without tool call info
-    return result.toTextStreamResponse();
     
   } catch (error) {
     console.error('API route error:', error);

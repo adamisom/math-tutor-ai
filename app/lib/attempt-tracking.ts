@@ -90,6 +90,10 @@ function levenshteinDistance(str1: string, str2: string): number {
  * Get attempt count for a problem
  */
 export function getAttemptCount(problemSignature: string): number {
+  // Only access localStorage in browser environment
+  if (typeof window === 'undefined') {
+    return 0;
+  }
   try {
     const stored = localStorage.getItem(`attempts_${problemSignature}`);
     return stored ? parseInt(stored, 10) : 0;
@@ -103,6 +107,10 @@ export function getAttemptCount(problemSignature: string): number {
  * Increment attempt count for a problem
  */
 export function incrementAttemptCount(problemSignature: string): number {
+  // Only access localStorage in browser environment
+  if (typeof window === 'undefined') {
+    return 0;
+  }
   try {
     const current = getAttemptCount(problemSignature);
     const newCount = current + 1;
@@ -118,6 +126,10 @@ export function incrementAttemptCount(problemSignature: string): number {
  * Reset attempt count for a problem (when starting new problem)
  */
 export function resetAttemptCount(problemSignature: string): void {
+  // Only access localStorage in browser environment
+  if (typeof window === 'undefined') {
+    return;
+  }
   try {
     localStorage.removeItem(`attempts_${problemSignature}`);
   } catch (error) {

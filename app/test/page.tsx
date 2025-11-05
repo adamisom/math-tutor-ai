@@ -711,6 +711,10 @@ export default function TestPage() {
   // Load test results from localStorage on client mount only
   useEffect(() => {
     setIsClient(true);
+    // Only access localStorage in browser environment
+    if (typeof window === 'undefined') {
+      return;
+    }
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -724,7 +728,7 @@ export default function TestPage() {
 
   // Save test results to localStorage whenever they change (only on client)
   useEffect(() => {
-    if (!isClient) return;
+    if (!isClient || typeof window === 'undefined') return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(testResults));
     } catch (error) {
@@ -752,6 +756,7 @@ export default function TestPage() {
   const resetTest = () => {
     setSelectedProblem(null);
     setTestResults({});
+    if (typeof window === 'undefined') return;
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
