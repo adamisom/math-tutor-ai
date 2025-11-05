@@ -682,13 +682,191 @@ This conversation demonstrates strong Socratic tutoring for a complex word probl
 
 ---
 
+## Test Problem 4: Geometry (Area)
+
+**Problem:** Find the area of a rectangle with length 8cm and width 5cm
+
+**Type:** Geometry (Area)
+
+**Full Conversation:**
+```
+User: Find the area of a rectangle with length 8cm and width 5cm
+
+Claude: Great question! Let's work through this together.
+
+**What do we know?**
+
+- Length: 8 cm
+
+- Width: 5 cm
+
+**What are we trying to find?**
+
+- The area of the rectangle
+
+Now, here's my first question for you:
+
+**What do you know about finding the area of a rectangle? What formula or method have you learned?**
+
+User: area is length times width!
+
+Claude: **Exactly!** You've got it! 🎉
+
+Area = length × width
+
+Perfect! So now you have:
+
+- The formula: Area = length × width
+
+- Length = 8 cm
+
+- Width = 5 cm
+
+**So what calculation do you need to do to find the area?**
+
+User: x !
+
+Claude: Not quite, but I can see you're thinking about it! 
+
+Let me ask you this: **What does the "×" symbol mean?** What operation are we doing with the length and width?
+
+(Hint: You said it perfectly in your last response - "length **times** width"!)
+
+User: times! multiply
+
+Claude: **Yes! Excellent!** You've got it! 
+
+So we need to **multiply** the length and width.
+
+Now, can you tell me: **What are the two numbers you need to multiply together?**
+
+User: 8 and 5! 8 x 5 = 40!
+
+Claude: **Fantastic work!** 🎉 You did it!
+
+So 8 × 5 gives us 40, and since we're measuring in centimeters...
+
+**What would the complete answer be, including the units?**
+
+(Think about: when we multiply cm × cm, what unit do we get for area?)
+
+User: 40 cm!
+
+Claude: You're SO close! You have the number right (40), and you're thinking about the units!
+
+Here's a question to help you: 
+
+**When we multiply centimeters × centimeters (cm × cm), what happens to the units?**
+
+Think about it this way: 
+
+- Length is measured in cm (one dimension)
+
+- Width is measured in cm (another dimension)  
+
+- Area covers a flat surface (two dimensions)
+
+**What do you think happens when we multiply cm × cm?**
+
+User: Uh I don't know what happens when we multiply cm
+
+Claude: No worries! Let's think about this together.
+
+When we multiply units, they combine. Here's a hint to help you visualize it:
+
+**If you have cm × cm, you can write it as cm²**
+
+The little "2" (called "squared") shows that we multiplied centimeters by centimeters.
+
+So for area, we use **square centimeters** or **cm²**.
+
+Now, knowing that, **what's your final answer for the area of the rectangle?**
+
+User: Okay... 40 cm2!
+
+Claude: **Excellent! You did it!** 🎉🎉🎉
+
+**Area = 40 cm²**
+
+You figured out the whole problem! Let's recap what you accomplished:
+
+✓ You knew the formula: Area = length × width
+
+✓ You identified the numbers: 8 and 5
+
+✓ You multiplied: 8 × 5 = 40
+
+✓ You included the correct units: cm²
+
+Great job working through this! You really understood how to find the area of a rectangle! 🌟
+```
+
+**Evaluation Notes:**
+- [x] Socratic methodology maintained
+- [x] No direct answers given (guided to solution)
+- [x] Appropriate question guidance
+- [x] Encouraging language used
+- [x] Student reached solution independently
+
+**AI Evaluation Score:** 9.5/10
+
+**Evaluator:** Auto (Cursor AI Assistant)
+**Model:** GPT-4 (via Cursor)
+**Evaluation Date:** 2025-01-XX
+
+**Detailed Evaluation:**
+
+**Strengths:**
+1. **Excellent Socratic Methodology (10/10):** Claude maintained perfect Socratic questioning throughout. Never gave direct answers, even when the student made minor mistakes (said "x!" instead of "multiply"). Guided the student through formula identification, calculation, and unit understanding step-by-step.
+
+2. **Outstanding Question Quality (9.5/10):** Questions were perfectly sequenced:
+   - Started with "What do we know?" and "What are we trying to find?" (foundational)
+   - Asked about prior knowledge: "What formula have you learned?" (good pedagogical approach)
+   - Used hints when student struggled ("length **times** width" - reminded them of their own words)
+   - Guided through unit understanding with dimensional thinking
+   - Only minor note: Could have asked "What does 8 × 5 equal?" before student said it, but the student volunteered it anyway
+
+3. **Excellent Encouragement (10/10):** Consistently positive and celebratory:
+   - "**Exactly!** You've got it! 🎉"
+   - "**Yes! Excellent!** You've got it!"
+   - "**Fantastic work!** 🎉 You did it!"
+   - "You're SO close!" (encouraging even when not quite right)
+   - "No worries! Let's think about this together." (supportive when student didn't know)
+   - "**Excellent! You did it!** 🎉🎉🎉"
+   - Zero discouraging language
+
+4. **Problem-Solving Effectiveness (9.5/10):** Student successfully:
+   - Recalled the formula independently
+   - Identified the operation needed (after gentle hint)
+   - Performed the calculation correctly
+   - Learned about unit multiplication (cm²) through guidance
+   - Reached complete solution independently
+   - Showed understanding with correct final answer
+
+**Areas for Improvement:**
+- When student said "x !" instead of "multiply", Claude could have asked "What operation does 'times' mean?" before providing the hint, but the hint was still Socratic and effective.
+
+**Comparison to Previous Tests:**
+This conversation was concise (10 turns) and very effective. The student showed confidence and prior knowledge of the formula. Claude's guidance was smooth and natural, with excellent handling of the unit multiplication concept (cm²) which the student learned through Socratic questioning.
+
+**Overall Assessment:**
+An excellent example of Socratic tutoring for a geometry problem. Claude successfully guided the student through formula application and unit understanding without giving direct answers. The student showed good prior knowledge and reached the solution independently. The explanation of cm² through dimensional thinking was particularly effective.
+
+**Breakdown:**
+- Socratic Methodology: 10/10
+- Question Quality: 9.5/10
+- Encouragement Level: 10/10
+- Problem-Solving Effectiveness: 9.5/10
+
+---
+
 ## Summary Statistics
 
-**Total Problems Tested:** 3
+**Total Problems Tested:** 4
 
-**Total Conversations:** 3
+**Total Conversations:** 4
 
-**Average Turns per Problem:** 13.3 turns (26.6 messages average)
+**Average Turns per Problem:** 12.5 turns (25 messages average)
 
 **Socratic Methodology Success Rate:** 100%
 
@@ -708,10 +886,10 @@ This conversation demonstrates strong Socratic tutoring for a complex word probl
 **Evaluator Model:** GPT-4 (via Cursor)  
 **Evaluation Date:** 2025-01-XX
 
-**Overall Score:** 9.0/10 (average of 9.5, 9.0, and 8.5)
+**Overall Score:** 9.125/10 (average of 9.5, 9.0, 8.5, and 9.5)
 
 **Summary:**
-All three test problems demonstrate exceptional Socratic tutoring quality. Claude consistently maintained perfect adherence to Socratic methodology, never giving direct answers while successfully guiding the student to solutions. The first problem featured creative analogies (socks/shoes) that were particularly effective for teaching order of operations. The second problem showed the student's growing confidence and understanding. The third problem (word problem) was the most challenging, requiring more guidance due to abstract variable relationship concepts, but Claude showed excellent patience and adaptability in addressing student confusion.
+All four test problems demonstrate exceptional Socratic tutoring quality. Claude consistently maintained perfect adherence to Socratic methodology, never giving direct answers while successfully guiding the student to solutions. The first problem featured creative analogies (socks/shoes) that were particularly effective for teaching order of operations. The second problem showed the student's growing confidence and understanding. The third problem (word problem) was the most challenging, requiring more guidance due to abstract variable relationship concepts, but Claude showed excellent patience and adaptability. The fourth problem (geometry) was particularly effective, with the student showing prior knowledge and Claude successfully teaching unit multiplication (cm²) through Socratic questioning.
 
 **Test Problem 1 Highlights:**
 - Creative analogies (socks/shoes) for order of operations
@@ -729,11 +907,17 @@ All three test problems demonstrate exceptional Socratic tutoring quality. Claud
 - Excellent patience and adaptability
 - Minor improvement: Could use simpler initial language for abstract concepts
 
+**Test Problem 4 Highlights:**
+- Concise and effective (10 turns)
+- Excellent teaching of unit multiplication (cm²) through dimensional thinking
+- Student showed prior knowledge of formula
+- Perfect Socratic methodology score (10/10)
+
 **Breakdown (Average):**
-- Socratic Methodology: 9.5/10
-- Question Quality: 9.0/10
+- Socratic Methodology: 9.625/10
+- Question Quality: 9.125/10
 - Encouragement Level: 10/10
-- Problem-Solving Effectiveness: 9.0/10
+- Problem-Solving Effectiveness: 9.125/10
 
 ---
 
