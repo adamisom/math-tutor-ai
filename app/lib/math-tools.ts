@@ -20,7 +20,7 @@ import {
  * Checks if a student's solution to an equation is correct
  */
 export const verifyEquationSolutionTool = tool({
-  description: `Verify if a student's solution to an equation is correct. Use this when a student provides a solution to an equation (e.g., "x = 4" for "2x + 5 = 13"). Returns whether the solution is correct and verification steps.`,
+  description: `Verify if a student's solution to an equation is correct. Use this when a student provides a solution to an equation (e.g., "x = 4" for "2x + 5 = 13"). Returns whether the solution is correct and verification steps. CRITICAL: After receiving the tool result, you MUST immediately generate a Socratic response to the student. Never stop after calling this tool.`,
   inputSchema: z.object({
     equation: z.string().describe('The equation to verify (e.g., "2x + 5 = 13")'),
     claimed_solution: z.string().describe('The student\'s claimed solution (e.g., "x = 4")'),

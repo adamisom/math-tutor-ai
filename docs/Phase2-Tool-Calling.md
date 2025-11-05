@@ -154,22 +154,35 @@ maxSteps: 7, // or 10 for complex problems
 - Tool executes successfully (logs show `[Tool Call]` and `[Tool Result]`)
 - But no chatbot response appears in UI
 
+**Known Issue: Claude Stops After Tool Execution**
+Claude consistently stops generating text after tool calls, despite explicit continuation instructions in:
+- System prompt: "After calling ANY tool, you MUST ALWAYS generate a response..."
+- Tool descriptions: "CRITICAL: After receiving the tool result, you MUST immediately generate..."
+
+**Current Workaround:** Approach 6 (Explicit Continuation Message)
+- The system detects when a tool was called but no text follows
+- Automatically makes a continuation request to force response generation
+- This is a workaround for Claude's unexpected behavior
+
 **Possible Causes:**
-1. **maxSteps too low** - Claude stops after tool call without generating text
-   - **Solution:** Increase `maxSteps` to 5 or higher
+1. **Claude's tool use behavior** - Claude treats tool execution as completing the turn
+   - **Solution:** Approach 6 continuation detection and automatic retry
    
-2. **Streaming error** - Network issue or stream interruption
+2. **maxSteps not available** - Current SDK version doesn't support `maxSteps` parameter
+   - **Note:** Even if available, may not fix the underlying issue
+   
+3. **Streaming error** - Network issue or stream interruption
    - **Check:** Browser console and server logs for errors
    - **Solution:** Check network connectivity, retry request
 
-3. **Tool execution error** - Tool fails silently
+4. **Tool execution error** - Tool fails silently
    - **Check:** Server logs for `[Tool Result]` errors
    - **Solution:** Verify tool implementation, check nerdamer compatibility
 
 **Debugging:**
 - Check server console for `[Tool Call]` and `[Tool Result]` logs
+- Check for `[Approach 6]` logs showing continuation request
 - Check browser console for fetch/streaming errors
-- Verify `maxSteps` is set appropriately (minimum 5)
 
 ### Tool Calls Not Appearing in Conversation
 

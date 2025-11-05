@@ -6,19 +6,13 @@ import { mathVerificationTools } from '../../lib/math-tools';
 import { manageAttemptTracking } from '../../lib/attempt-tracking';
 
 // Shared store for tool calls in this request (for testing/logging)
+// Note: Currently unused, but kept for potential future tool call logging/injection
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface ToolCallInfo {
   toolName: string;
-  args: any;
-  result: any;
+  args: Record<string, unknown>;
+  result: Record<string, unknown>;
   timestamp: number;
-}
-
-// Store tool calls per request (using request ID to avoid conflicts)
-const toolCallStore = new Map<string, ToolCallInfo[]>();
-
-// Generate a simple request ID
-function getRequestId(): string {
-  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -117,13 +111,8 @@ export async function POST(req: NextRequest) {
         messages: validMessages,
         tools: mathVerificationTools,
         toolChoice: 'auto', // Claude decides when to call tools
-        // maxSteps: Controls how many "rounds" Claude can take in a single response.
-        // Each step can be: a tool call, processing a tool result, or generating text.
-        // Typical flow: (1) Call verification tool, (2) Process tool result, (3) Generate Socratic response
-        // Increased to 7 to ensure Claude always generates text after tool calls.
-        // If Claude still stops after tool calls, increase further to 10.
-        // Downsides of higher values: Increased latency, higher API costs, more complexity
-        maxSteps: 7,
+        // Note: maxSteps parameter is not available in this AI SDK version
+        // Tool calling continuation issue will be addressed through other approaches
       });
       
       // Log tool usage in development
@@ -140,16 +129,121 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Return standard streaming response (works in both dev and production)
+    // Return streaming response with Approach 6: Explicit Continuation Message
+    // Monitor stream to detect if tool was called but no text follows
     try {
-      const response = result.toTextStreamResponse();
+      // Create a wrapper stream that monitors for tool calls and text
+      let toolWasCalled = false;
+      let hasText = false;
+      let accumulatedText = '';
+      let lastToolResultTime = 0;
+      let streamFinished = false;
+      let finishReason: string | undefined;
       
-      // Log in development to track streaming
+      // Create a custom stream that monitors and forwards chunks
+      const encoder = new TextEncoder();
+      const monitoredStream = new ReadableStream({
+        async start(controller) {
+          try {
+            for await (const chunk of result.fullStream) {
+              if (chunk.type === 'tool-call') {
+                toolWasCalled = true;
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[Stream Monitor] Tool call detected:', chunk.toolName);
+                }
+              } else if (chunk.type === 'tool-result') {
+                lastToolResultTime = Date.now();
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[Stream Monitor] Tool result received:', chunk.toolName);
+                }
+              } else if (chunk.type === 'text-delta') {
+                hasText = true;
+                accumulatedText += chunk.text;
+                // Forward text chunks to client immediately
+                controller.enqueue(encoder.encode(chunk.text));
+              } else if (chunk.type === 'finish') {
+                streamFinished = true;
+                finishReason = chunk.finishReason;
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[Stream Monitor] Stream finished:', chunk.finishReason);
+                }
+              }
+            }
+            
+            // More conservative check: Only continue if:
+            // 1. Tool was called
+            // 2. No text was generated (or only whitespace)
+            // 3. Stream finished (not just loop ended)
+            // 4. At least some time passed since tool result (guard against race conditions)
+            const timeSinceToolResult = lastToolResultTime > 0 ? Date.now() - lastToolResultTime : Infinity;
+            const shouldContinue = toolWasCalled && 
+                                   (!hasText || accumulatedText.trim().length === 0) &&
+                                   (streamFinished || timeSinceToolResult > 100); // 100ms buffer
+            
+            if (shouldContinue) {
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[Approach 6] Tool was called but no text generated.', {
+                  hasText,
+                  accumulatedLength: accumulatedText.length,
+                  streamFinished,
+                  finishReason,
+                  timeSinceToolResult,
+                });
+                console.log('[Approach 6] Making continuation request...');
+              }
+              
+              // Approach 6: Make continuation request and append to stream
+              const continuationMessages = [
+                ...validMessages,
+                {
+                  role: 'user' as const,
+                  content: 'Please respond to the student based on the tool verification results above. Guide them with Socratic questions.',
+                },
+              ];
+              
+              const continuationResult = await streamText({
+                model: anthropic('claude-sonnet-4-5-20250929'),
+                system: systemPrompt,
+                messages: continuationMessages,
+                // Don't pass tools to avoid infinite loop
+              });
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[Approach 6] Continuation request created, streaming response...');
+              }
+              
+              // Stream continuation response text chunks
+              let continuationTextCount = 0;
+              for await (const chunk of continuationResult.fullStream) {
+                if (chunk.type === 'text-delta') {
+                  continuationTextCount += chunk.text.length;
+                  controller.enqueue(encoder.encode(chunk.text));
+                }
+              }
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[Approach 6] Continuation response streamed:', continuationTextCount, 'characters');
+              }
+            }
+            
+            controller.close();
+          } catch (error) {
+            console.error('[Stream Monitor] Error:', error);
+            controller.error(error);
+          }
+        },
+      });
+      
+      // Return the monitored stream
       if (process.env.NODE_ENV === 'development') {
-        console.log('[Stream] Response created, returning to client');
+        console.log('[Stream] Monitored stream created with Approach 6 continuation detection');
       }
       
-      return response;
+      return new Response(monitoredStream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+        },
+      });
     } catch (streamError) {
       console.error('[Stream Error] Failed to create stream response:', streamError);
       throw streamError;

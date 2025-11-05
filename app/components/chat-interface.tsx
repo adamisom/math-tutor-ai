@@ -139,7 +139,7 @@ export function ChatInterface() {
 
       setMessages([...newMessages, assistantMessage]);
 
-      // Handle streaming response
+      // Handle streaming response (text stream format)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedContent = '';

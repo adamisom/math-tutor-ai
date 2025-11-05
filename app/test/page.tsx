@@ -703,28 +703,24 @@ export default function TestPage() {
   const [selectedProblem, setSelectedProblem] = useState<TestProblem | null>(null);
   // Initialize with empty object to avoid hydration mismatch
   // Load from localStorage only on client side after mount
-  const [testResults, setTestResults] = useState<Record<string, 'pass' | 'fail' | 'pending'>>({});
-  const [savingResult, setSavingResult] = useState<string | null>(null);
-  const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState(false);
-
-  // Load test results from localStorage on client mount only
-  useEffect(() => {
-    setIsClient(true);
-    // Only access localStorage in browser environment
+  // Use function initializer to safely access localStorage during SSR
+  const [testResults, setTestResults] = useState<Record<string, 'pass' | 'fail' | 'pending'>>(() => {
     if (typeof window === 'undefined') {
-      return;
+      return {};
     }
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        setTestResults(parsed);
+        return JSON.parse(saved);
       }
     } catch (error) {
       console.warn('Failed to load test results from localStorage:', error);
     }
-  }, []);
+    return {};
+  });
+  const [savingResult, setSavingResult] = useState<string | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
+  const [isClient] = useState(() => typeof window !== 'undefined');
 
   // Save test results to localStorage whenever they change (only on client)
   useEffect(() => {
