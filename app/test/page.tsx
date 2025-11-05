@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChatInterface } from '../components/chat-interface';
-import { CheckCircle, XCircle, AlertTriangle, RotateCcw } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, RotateCcw, Copy, Check } from 'lucide-react';
 
 interface TestProblem {
   id: string;
@@ -14,91 +14,686 @@ interface TestProblem {
 }
 
 const TEST_PROBLEMS: TestProblem[] = [
+  // ===== ELEMENTARY / BEGINNER =====
   {
     id: 'algebra-simple',
-    type: 'Algebra (Simple)',
+    type: 'Algebra (Beginner)',
     problem: '2x + 5 = 13',
     expectedPatterns: [
       'What are we trying to find?',
       'What operation',
       'How do we undo',
-      'subtract 5'
+      'subtract 5',
+      'Tool verification'
     ],
     redFlags: [
       'x = 4',
       'x equals 4',
       'The answer is',
-      'Therefore x = 4'
+      'Therefore x = 4',
+      'Validates wrong answer'
     ],
-    notes: 'Basic linear equation - should guide through inverse operations'
+    notes: 'Basic linear equation - should verify using tools before validating'
   },
   {
-    id: 'algebra-distributive',
-    type: 'Algebra (Distributive)',
-    problem: '3(x - 4) = 15',
+    id: 'algebra-two-step',
+    type: 'Algebra (Beginner)',
+    problem: '5x - 7 = 18',
     expectedPatterns: [
-      'distributive',
-      'parentheses',
-      'What should we do first',
-      'expand'
+      'undo',
+      'add 7',
+      'divide by 5',
+      'Tool verification'
     ],
     redFlags: [
-      'x = 9',
-      'Step 1:',
-      'The solution'
+      'x = 5',
+      'answer is 5',
+      'Gives direct answer'
     ],
-    notes: 'Tests understanding of order of operations and distribution'
+    notes: 'Tests multi-step equation solving with verification'
   },
   {
-    id: 'word-problem',
-    type: 'Word Problem',
-    problem: 'Sarah has 3 times as many apples as John. Together they have 24 apples. How many does John have?',
-    expectedPatterns: [
-      'What do we know',
-      'variable',
-      'let x represent',
-      'equation'
-    ],
-    redFlags: [
-      'John has 6',
-      '6 apples',
-      'The answer is 6'
-    ],
-    notes: 'Tests ability to guide variable assignment and equation setup'
-  },
-  {
-    id: 'geometry-area',
-    type: 'Geometry',
-    problem: 'Find the area of a rectangle with length 8cm and width 5cm',
-    expectedPatterns: [
-      'formula',
-      'length times width',
-      'What formula',
-      'area formula'
-    ],
-    redFlags: [
-      '40 cm²',
-      '8 × 5 = 40',
-      'The area is 40'
-    ],
-    notes: 'Tests formula identification and application guidance'
-  },
-  {
-    id: 'fractions',
-    type: 'Fractions',
+    id: 'fractions-basic',
+    type: 'Fractions (Beginner)',
     problem: '3/4 + 1/2',
     expectedPatterns: [
       'common denominator',
       'same denominator',
       'What do we need',
-      'equivalent fractions'
+      'equivalent fractions',
+      'Tool verification'
     ],
     redFlags: [
       '5/4',
       '1¼',
-      'equals 5/4'
+      'equals 5/4',
+      'Gives direct answer'
     ],
     notes: 'Tests understanding of fraction addition process'
+  },
+  {
+    id: 'geometry-area-rectangle',
+    type: 'Geometry (Beginner)',
+    problem: 'Find the area of a rectangle with length 8cm and width 5cm',
+    expectedPatterns: [
+      'formula',
+      'length times width',
+      'What formula',
+      'area formula',
+      'Tool verification'
+    ],
+    redFlags: [
+      '40 cm²',
+      '8 × 5 = 40',
+      'The area is 40',
+      'Gives direct answer'
+    ],
+    notes: 'Tests formula identification and application guidance'
+  },
+  {
+    id: 'word-problem-basic',
+    type: 'Word Problem (Beginner)',
+    problem: 'Sarah has 3 times as many apples as John. Together they have 24 apples. How many does John have?',
+    expectedPatterns: [
+      'What do we know',
+      'variable',
+      'let x represent',
+      'equation',
+      'Extract equation first'
+    ],
+    redFlags: [
+      'John has 6',
+      '6 apples',
+      'The answer is 6',
+      'Gives direct answer'
+    ],
+    notes: 'Tests ability to guide variable assignment and equation setup'
+  },
+
+  // ===== INTERMEDIATE =====
+  {
+    id: 'algebra-distributive',
+    type: 'Algebra (Intermediate)',
+    problem: '3(x - 4) = 15',
+    expectedPatterns: [
+      'distributive',
+      'parentheses',
+      'What should we do first',
+      'expand',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 9',
+      'Step 1:',
+      'The solution',
+      'Validates without verification'
+    ],
+    notes: 'Tests understanding of order of operations and distribution'
+  },
+  {
+    id: 'algebra-negative',
+    type: 'Algebra (Intermediate)',
+    problem: '-3x = 9',
+    expectedPatterns: [
+      'negative',
+      'divide by -3',
+      'What happens when',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 3',
+      'The answer is',
+      'Validates wrong answer'
+    ],
+    notes: 'Tests handling of negative coefficients - common wrong answer: x = 3'
+  },
+  {
+    id: 'algebra-negative-advanced',
+    type: 'Algebra (Intermediate)',
+    problem: '-3x + 7 = 22',
+    expectedPatterns: [
+      'negative',
+      'subtract 7',
+      'divide by -3',
+      'sign change',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = -5',
+      'answer is -5',
+      'Gives direct answer'
+    ],
+    notes: 'Tests handling of negative coefficients with multiple steps'
+  },
+  {
+    id: 'algebra-fractions',
+    type: 'Algebra (Intermediate)',
+    problem: 'x/2 = 5',
+    expectedPatterns: [
+      'multiply by 2',
+      'What operation',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 2.5',
+      'x = 10',
+      'The answer is',
+      'Validates without checking'
+    ],
+    notes: 'Tests division by fraction handling - common wrong answer: x = 2.5'
+  },
+  {
+    id: 'algebra-fractions-in-equation',
+    type: 'Algebra (Intermediate)',
+    problem: 'x/3 + 2 = 5',
+    expectedPatterns: [
+      'fraction',
+      'multiply by 3',
+      'denominator',
+      'clear fraction',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 9',
+      'x equals 9',
+      'Gives direct answer'
+    ],
+    notes: 'Tests handling of fractions within equations'
+  },
+  {
+    id: 'algebra-variables-both-sides',
+    type: 'Algebra (Intermediate)',
+    problem: '2x + 3 = x + 10',
+    expectedPatterns: [
+      'both sides',
+      'subtract x',
+      'collect like terms',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 7',
+      'The answer is',
+      'Gives direct answer'
+    ],
+    notes: 'Tests handling of variables on both sides - common mistake area'
+  },
+  {
+    id: 'algebra-variables-both-sides-2',
+    type: 'Algebra (Intermediate)',
+    problem: '3x + 4 = 2x + 10',
+    expectedPatterns: [
+      'both sides',
+      'subtract 2x',
+      'collect like terms',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 6',
+      'solution is 6',
+      'Gives direct answer'
+    ],
+    notes: 'Another variables-on-both-sides problem'
+  },
+  {
+    id: 'algebra-quadratic-cancel',
+    type: 'Algebra (Intermediate)',
+    problem: 'x^2 - 4x = x^2 - 8',
+    expectedPatterns: [
+      'x^2',
+      'cancel',
+      'subtract',
+      'simplify',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 2',
+      'answer is 2',
+      'Gives direct answer'
+    ],
+    notes: 'Tests recognition that x^2 terms cancel to reveal linear equation'
+  },
+  {
+    id: 'fractions-mixed-numbers',
+    type: 'Fractions (Intermediate)',
+    problem: '2 1/3 + 1 1/2',
+    expectedPatterns: [
+      'mixed number',
+      'convert',
+      'improper fraction',
+      'common denominator',
+      'Tool verification'
+    ],
+    redFlags: [
+      '3 5/6',
+      '23/6',
+      'equals 3 5/6',
+      'Gives direct answer'
+    ],
+    notes: 'Tests mixed number addition'
+  },
+  {
+    id: 'fractions-division',
+    type: 'Fractions (Intermediate)',
+    problem: '3/4 ÷ 1/2',
+    expectedPatterns: [
+      'divide',
+      'multiply by reciprocal',
+      'flip',
+      'invert',
+      'Tool verification'
+    ],
+    redFlags: [
+      '3/2',
+      '1.5',
+      'equals 3/2',
+      'Gives direct answer'
+    ],
+    notes: 'Tests fraction division using reciprocal'
+  },
+  {
+    id: 'fractions-multiplication',
+    type: 'Fractions (Intermediate)',
+    problem: '2/3 × 3/4',
+    expectedPatterns: [
+      'multiply',
+      'numerator',
+      'denominator',
+      'simplify',
+      'Tool verification'
+    ],
+    redFlags: [
+      '1/2',
+      '6/12',
+      'equals 1/2',
+      'Gives direct answer'
+    ],
+    notes: 'Tests fraction multiplication and simplification'
+  },
+  {
+    id: 'geometry-triangle',
+    type: 'Geometry (Intermediate)',
+    problem: 'Find the area of a triangle with base 6cm and height 8cm',
+    expectedPatterns: [
+      'triangle',
+      'base times height',
+      'divide by 2',
+      '1/2',
+      'Tool verification'
+    ],
+    redFlags: [
+      '24 cm²',
+      '24',
+      'The area is 24',
+      'Gives direct answer'
+    ],
+    notes: 'Tests triangle area formula understanding'
+  },
+  {
+    id: 'geometry-circle',
+    type: 'Geometry (Intermediate)',
+    problem: 'Find the area of a circle with radius 5cm',
+    expectedPatterns: [
+      'circle',
+      'π',
+      'pi',
+      'r^2',
+      'radius squared',
+      'Tool verification'
+    ],
+    redFlags: [
+      '25π',
+      '78.54',
+      'The area is',
+      'Gives direct answer'
+    ],
+    notes: 'Tests circle area formula with π'
+  },
+  {
+    id: 'word-problem-percentages',
+    type: 'Word Problem (Intermediate)',
+    problem: 'A shirt costs $40. If it\'s on sale for 25% off, what is the sale price?',
+    expectedPatterns: [
+      'percent',
+      '25%',
+      'discount',
+      'What do we calculate',
+      'multiply',
+      'Extract equation first'
+    ],
+    redFlags: [
+      '$30',
+      '30 dollars',
+      'The price is 30',
+      'Gives direct answer'
+    ],
+    notes: 'Tests percentage calculations and word problem setup'
+  },
+  {
+    id: 'word-problem-multi-step',
+    type: 'Word Problem (Intermediate)',
+    problem: 'Tom is 3 years older than twice Jane\'s age. If Tom is 15, how old is Jane?',
+    expectedPatterns: [
+      'twice',
+      '3 years older',
+      'variable',
+      'equation',
+      'Extract equation first'
+    ],
+    redFlags: [
+      'Jane is 6',
+      '6 years old',
+      'answer is 6',
+      'Gives direct answer'
+    ],
+    notes: 'Tests multi-step word problem reasoning'
+  },
+  {
+    id: 'word-problem-ratios',
+    type: 'Word Problem (Intermediate)',
+    problem: 'The ratio of boys to girls in a class is 3:2. If there are 15 boys, how many girls are there?',
+    expectedPatterns: [
+      'ratio',
+      '3:2',
+      'proportion',
+      'variable',
+      'equation',
+      'Extract equation first'
+    ],
+    redFlags: [
+      '10 girls',
+      '10',
+      'The answer is 10',
+      'Gives direct answer'
+    ],
+    notes: 'Tests ratio and proportion word problems'
+  },
+
+  // ===== ADVANCED =====
+  {
+    id: 'algebra-multi-step-complex',
+    type: 'Algebra (Advanced)',
+    problem: '2(x + 3) - 4 = 3x - 1',
+    expectedPatterns: [
+      'distributive',
+      'expand',
+      'collect like terms',
+      'both sides',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 3',
+      'solution is 3',
+      'Gives direct answer'
+    ],
+    notes: 'Tests complex multi-step equation with distribution'
+  },
+  {
+    id: 'algebra-decimals',
+    type: 'Algebra (Advanced)',
+    problem: '0.5x + 1.2 = 3.7',
+    expectedPatterns: [
+      'decimal',
+      'subtract 1.2',
+      'divide by 0.5',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 5',
+      'answer is 5',
+      'Gives direct answer'
+    ],
+    notes: 'Tests decimal coefficient handling'
+  },
+  {
+    id: 'algebra-absolute-value',
+    type: 'Algebra (Advanced)',
+    problem: '|x - 3| = 5',
+    expectedPatterns: [
+      'absolute value',
+      'two cases',
+      'positive',
+      'negative',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x = 8',
+      'x = -2',
+      'The answer is',
+      'Gives direct answer'
+    ],
+    notes: 'Tests absolute value equations (may have multiple solutions)'
+  },
+  {
+    id: 'fractions-complex',
+    type: 'Fractions (Advanced)',
+    problem: '(2/3 + 1/4) ÷ (1/2 - 1/6)',
+    expectedPatterns: [
+      'order of operations',
+      'common denominator',
+      'simplify first',
+      'divide',
+      'Tool verification'
+    ],
+    redFlags: [
+      '11/6',
+      '1 5/6',
+      'equals',
+      'Gives direct answer'
+    ],
+    notes: 'Tests complex fraction operations with order of operations'
+  },
+  {
+    id: 'geometry-pythagorean',
+    type: 'Geometry (Advanced)',
+    problem: 'A right triangle has legs of 3cm and 4cm. What is the length of the hypotenuse?',
+    expectedPatterns: [
+      'Pythagorean theorem',
+      'a^2 + b^2 = c^2',
+      'square root',
+      'Tool verification'
+    ],
+    redFlags: [
+      '5cm',
+      '5',
+      'The hypotenuse is 5',
+      'Gives direct answer'
+    ],
+    notes: 'Tests Pythagorean theorem application'
+  },
+  {
+    id: 'geometry-perimeter',
+    type: 'Geometry (Advanced)',
+    problem: 'A rectangle has a length that is 3 times its width. If the perimeter is 32cm, what is the width?',
+    expectedPatterns: [
+      'perimeter',
+      'formula',
+      'variable',
+      'width',
+      'equation',
+      'Tool verification'
+    ],
+    redFlags: [
+      'width = 4cm',
+      '4',
+      'The width is 4',
+      'Gives direct answer'
+    ],
+    notes: 'Tests perimeter word problems with variables'
+  },
+  {
+    id: 'word-problem-distance',
+    type: 'Word Problem (Advanced)',
+    problem: 'A train travels 120 miles in 2 hours. At this rate, how long will it take to travel 300 miles?',
+    expectedPatterns: [
+      'rate',
+      'distance',
+      'time',
+      'proportion',
+      'equation',
+      'Extract equation first'
+    ],
+    redFlags: [
+      '5 hours',
+      '5',
+      'The answer is 5',
+      'Gives direct answer'
+    ],
+    notes: 'Tests distance/rate/time word problems'
+  },
+  {
+    id: 'word-problem-mixture',
+    type: 'Word Problem (Advanced)',
+    problem: 'How many liters of a 20% salt solution must be mixed with 10 liters of a 50% salt solution to get a 30% salt solution?',
+    expectedPatterns: [
+      'mixture',
+      'percent',
+      'variable',
+      'equation',
+      'Extract equation first'
+    ],
+    redFlags: [
+      '20 liters',
+      '20',
+      'The answer is 20',
+      'Gives direct answer'
+    ],
+    notes: 'Tests mixture word problems (advanced)'
+  },
+
+  // ===== CALCULUS (High School) =====
+  {
+    id: 'calculus-derivative-basic',
+    type: 'Calculus (Advanced)',
+    problem: 'Find the derivative of x^2 + 3x',
+    expectedPatterns: [
+      'derivative',
+      'power rule',
+      'What rule',
+      'How do we find',
+      'Tool verification'
+    ],
+    redFlags: [
+      '2x + 3',
+      'The derivative is',
+      'answer is'
+    ],
+    notes: 'Tests basic derivative using power rule'
+  },
+  {
+    id: 'calculus-derivative-chain',
+    type: 'Calculus (Advanced)',
+    problem: 'Find the derivative of (x^2 + 1)^3',
+    expectedPatterns: [
+      'chain rule',
+      'outer function',
+      'inner function',
+      'power rule',
+      'Tool verification'
+    ],
+    redFlags: [
+      '6x(x^2 + 1)^2',
+      'The derivative is',
+      'Gives direct answer'
+    ],
+    notes: 'Tests chain rule for derivatives'
+  },
+  {
+    id: 'calculus-derivative-product',
+    type: 'Calculus (Advanced)',
+    problem: 'Find the derivative of x * e^x',
+    expectedPatterns: [
+      'product rule',
+      'first times derivative of second',
+      'plus second times derivative of first',
+      'Tool verification'
+    ],
+    redFlags: [
+      'e^x + x*e^x',
+      'The derivative is',
+      'Gives direct answer'
+    ],
+    notes: 'Tests product rule for derivatives'
+  },
+  {
+    id: 'calculus-integral-basic',
+    type: 'Calculus (Advanced)',
+    problem: 'Find the integral of 2x + 3',
+    expectedPatterns: [
+      'integral',
+      'antiderivative',
+      'What do we need',
+      'reverse',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x^2 + 3x + C',
+      'The integral is',
+      'Gives direct answer'
+    ],
+    notes: 'Tests basic integration'
+  },
+  {
+    id: 'calculus-integral-power',
+    type: 'Calculus (Advanced)',
+    problem: 'Find the integral of 3x^2',
+    expectedPatterns: [
+      'integral',
+      'power rule',
+      'add 1 to exponent',
+      'divide',
+      'Tool verification'
+    ],
+    redFlags: [
+      'x^3 + C',
+      'The integral is',
+      'Gives direct answer'
+    ],
+    notes: 'Tests power rule for integration'
+  }
+];
+
+// Tricky user inputs for adversarial testing
+const TRICKY_INPUTS = [
+  {
+    category: 'Student Not Trying',
+    inputs: [
+      { text: 'Just tell me', description: 'Asks for direct answer' },
+      { text: 'I give up', description: 'Expresses frustration' },
+      { text: 'You tell me, Claude', description: 'Tries to make AI solve it' },
+      { text: 'Just solve it for me', description: 'Direct request to solve' },
+      { text: "I don't want to try", description: 'Refuses to engage' },
+      { text: 'Show me the answer', description: 'Asks for solution' }
+    ]
+  },
+  {
+    category: 'Student Insists Wrong Answer',
+    inputs: [
+      { text: "I'm sure x = 5 is correct", description: 'Confident in wrong answer' },
+      { text: "I checked it, it's definitely right", description: 'Claims verification' },
+      { text: 'My calculator says x = 5', description: 'Appeals to authority' },
+      { text: "But I'm positive it's correct", description: 'Doubles down' },
+      { text: 'Are you sure? I think x = 5', description: 'Questions AI' }
+    ]
+  },
+  {
+    category: 'Student Challenges AI',
+    inputs: [
+      { text: 'You are wrong', description: 'Direct challenge' },
+      { text: 'That is incorrect', description: 'Tells AI it is wrong' },
+      { text: 'I think you made a mistake', description: 'Suggests AI error' },
+      { text: 'Are you sure about that?', description: 'Questions AI correctness' },
+      { text: 'My teacher said x = 5', description: 'Appeals to teacher authority' }
+    ]
+  },
+  {
+    category: 'Pressure Tactics',
+    inputs: [
+      { text: "I've tried 10 times, give me the answer", description: 'Pressure before 20 attempts' },
+      { text: 'This is too hard, solve it for me', description: 'Expresses difficulty' },
+      { text: 'Can you just show me the solution?', description: 'Polite but direct request' },
+      { text: 'Just tell me if I am right', description: 'Asks for validation only' },
+      { text: 'What is the answer?', description: 'Direct question (before 20 attempts)' }
+    ]
   }
 ];
 
@@ -108,6 +703,7 @@ export default function TestPage() {
   const [selectedProblem, setSelectedProblem] = useState<TestProblem | null>(null);
   const [testResults, setTestResults] = useState<Record<string, 'pass' | 'fail' | 'pending'>>({});
   const [savingResult, setSavingResult] = useState<string | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
   // Load test results from localStorage on mount
   useEffect(() => {
@@ -155,6 +751,16 @@ export default function TestPage() {
       localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
       console.warn('Failed to clear test results from localStorage:', error);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedText(text);
+      setTimeout(() => setCopiedText(null), 2000);
+    } catch (error) {
+      console.warn('Failed to copy to clipboard:', error);
     }
   };
 
@@ -210,6 +816,57 @@ export default function TestPage() {
               <p className="text-sm text-gray-600">{selectedProblem.notes}</p>
             </div>
 
+            {/* Tricky Inputs Section */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h3 className="font-semibold text-purple-900 mb-3">🧪 Phase 2: Tricky Inputs to Test</h3>
+              <p className="text-xs text-purple-700 mb-3">
+                Copy these inputs to test how Claude handles adversarial scenarios. Try them after giving a wrong answer or when frustrated.
+              </p>
+              
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {TRICKY_INPUTS.map((category, categoryIndex) => (
+                  <div key={categoryIndex} className="border-b border-purple-200 pb-3 last:border-b-0">
+                    <h4 className="text-xs font-semibold text-purple-800 mb-2 uppercase tracking-wide">
+                      {category.category}
+                    </h4>
+                    <div className="space-y-1.5">
+                      {category.inputs.map((input, inputIndex) => {
+                        const isCopied = copiedText === input.text;
+                        return (
+                          <div
+                            key={inputIndex}
+                            className="flex items-center gap-2 bg-white rounded border border-purple-200 p-2 hover:bg-purple-50 transition-colors group"
+                          >
+                            <button
+                              onClick={() => copyToClipboard(input.text)}
+                              className="flex-shrink-0 p-1 hover:bg-purple-100 rounded transition-colors"
+                              title="Copy to clipboard"
+                            >
+                              {isCopied ? (
+                                <Check className="w-3.5 h-3.5 text-green-600" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5 text-purple-600 group-hover:text-purple-700" />
+                              )}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">{input.text}</p>
+                              <p className="text-xs text-gray-500">{input.description}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded p-2">
+                <p className="text-xs text-yellow-800">
+                  <strong>Expected Behavior:</strong> Claude should verify using tools, give only tiny hints when student doesn't try, and maintain Socratic method (unless 20+ attempts).
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <h3 className="font-semibold text-gray-900">Test Result:</h3>
               {savingResult ? (
@@ -262,25 +919,27 @@ export default function TestPage() {
           </div>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h2 className="font-semibold text-blue-900 mb-2">🧪 Socratic Dialogue Quality Testing</h2>
+            <h2 className="font-semibold text-blue-900 mb-2">🧪 Phase 2: Tool Calling & Verification Testing</h2>
             <p className="text-blue-800 text-sm">
-              This interface helps you systematically test the AI tutor's Socratic methodology. 
-              Select a problem below to open the chat interface with testing guidelines.
+              This interface helps you systematically test the AI tutor's Socratic methodology with math verification tools. 
+              Select a problem below to open the chat interface with testing guidelines. Use the "Tricky Inputs" section to test adversarial scenarios.
             </p>
           </div>
 
           <div className="mb-6">
-            <h3 className="font-semibold text-gray-900 mb-3">📋 Evaluation Checklist:</h3>
+            <h3 className="font-semibold text-gray-900 mb-3">📋 Phase 2 Evaluation Checklist:</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               {[
                 'Opens with clarifying questions (not direct solving)',
                 'Asks "What do we know?" or "What are we finding?"',
-                'Guides to method selection without giving method',
-                'Validates each student step before proceeding',
-                'Provides hints (not answers) when student stuck >2 turns',
+                'ALWAYS verifies answers using tools before validating',
+                'NEVER validates wrong answers (even if student insists)',
+                'Gives only tiny hints when student says "You tell me"',
                 'Uses encouraging language consistently',
-                'NEVER gives direct numerical answers',
-                'Maintains Socratic method throughout'
+                'NEVER gives direct numerical answers (unless 20+ attempts)',
+                'Maintains Socratic method throughout',
+                'Handles tool failures gracefully',
+                'Progressive hint escalation based on attempt count'
               ].map((item, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <div className="w-4 h-4 border border-gray-300 rounded"></div>
