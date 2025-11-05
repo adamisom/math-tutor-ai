@@ -32,9 +32,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Filter and validate messages - remove any with empty content
+    // Also ensure messages are in the format expected by AI SDK
+    const validMessages = messages
+      .filter((msg: any) => {
+        if (!msg.role || (!msg.content && msg.content !== 0)) return false;
+        // Ensure content is a non-empty string
+        const contentStr = typeof msg.content === 'string' ? msg.content : String(msg.content || '');
+        return contentStr.trim().length > 0;
+      })
+      .map((msg: any) => ({
+        role: msg.role,
+        content: typeof msg.content === 'string' ? msg.content.trim() : String(msg.content || '').trim(),
+      }));
+
+    // Ensure we have at least one valid message
+    if (validMessages.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No valid messages provided. Please enter a math problem.' }), 
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Debug logging (remove in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Validated messages:', JSON.stringify(validMessages, null, 2));
+    }
+
     // Extract current problem context
-    const currentProblem = extractProblemFromMessages(messages);
-    const conversationLength = messages.length;
+    const currentProblem = extractProblemFromMessages(validMessages);
+    const conversationLength = validMessages.length;
     const isStuck = conversationLength > 4; // Simple stuck detection
     
     // Generate enhanced Socratic prompt with context
@@ -46,10 +76,11 @@ export async function POST(req: NextRequest) {
     });
 
     // Generate response using Anthropic
+    // Using Claude Sonnet 4.5 (latest available model)
     const result = await streamText({
-      model: anthropic('claude-3-5-sonnet-20241022'),
+      model: anthropic('claude-sonnet-4-5-20250929'),
       system: systemPrompt,
-      messages: messages,
+      messages: validMessages,
     });
 
     // For now, return streaming response directly
@@ -60,10 +91,35 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('API route error:', error);
     
+    // Extract error message from various error formats
+    let errorMessage = 'Something went wrong. Please try again.';
+    let statusCode = 500;
+    
+    // Check if it's an AI SDK error with responseBody
+    const errorAny = error as any;
+    if (errorAny?.responseBody) {
+      try {
+        const body = typeof errorAny.responseBody === 'string' 
+          ? JSON.parse(errorAny.responseBody) 
+          : errorAny.responseBody;
+        if (body?.error?.message) {
+          errorMessage = body.error.message;
+        }
+      } catch (e) {
+        // If parsing fails, use the string directly
+        if (typeof errorAny.responseBody === 'string' && errorAny.responseBody.includes('text content blocks must be non-empty')) {
+          errorMessage = 'Invalid message format. Please try rephrasing your problem or refresh the page.';
+          statusCode = 400;
+        }
+      }
+    }
+    
     // Determine error type and return appropriate response
     if (error instanceof Error) {
+      const msg = error.message || errorMessage;
+      
       // Rate limiting (429 from Anthropic)
-      if (error.message.includes('429')) {
+      if (msg.includes('429') || errorAny?.statusCode === 429) {
         return new Response(
           JSON.stringify({ 
             error: 'Too many requests. Please wait a moment and try again.',
@@ -80,7 +136,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Authentication error (401 from Anthropic)
-      if (error.message.includes('401') || error.message.includes('unauthorized')) {
+      if (msg.includes('401') || msg.includes('unauthorized') || errorAny?.statusCode === 401) {
         return new Response(
           JSON.stringify({ 
             error: 'API configuration error. Please contact support.' 
@@ -91,9 +147,42 @@ export async function POST(req: NextRequest) {
           }
         );
       }
+
+      // Model not found error (404 from Anthropic)
+      if (msg.includes('404') || 
+          msg.includes('not_found_error') ||
+          msg.includes('model:') ||
+          errorAny?.statusCode === 404) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Model configuration error. Please contact support.' 
+          }), 
+          { 
+            status: 500, 
+            headers: { 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Invalid request error (400 from Anthropic) - often empty content blocks
+      if (msg.includes('400') || 
+          msg.includes('invalid_request_error') ||
+          msg.includes('text content blocks must be non-empty') ||
+          msg.includes('content blocks must be non-empty') ||
+          errorAny?.statusCode === 400) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid message format. Please try rephrasing your problem or refresh the page.' 
+          }), 
+          { 
+            status: 400, 
+            headers: { 'Content-Type': 'application/json' } 
+          }
+        );
+      }
       
       // Network/connection errors
-      if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
+      if (msg.includes('network') || msg.includes('ENOTFOUND')) {
         return new Response(
           JSON.stringify({ 
             error: 'Network error. Please check your connection and try again.' 
