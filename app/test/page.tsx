@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChatInterface } from '../components/chat-interface';
 import { CheckCircle, XCircle, AlertTriangle, RotateCcw } from 'lucide-react';
 
@@ -102,9 +102,34 @@ const TEST_PROBLEMS: TestProblem[] = [
   }
 ];
 
+const STORAGE_KEY = 'math-tutor-test-results';
+
 export default function TestPage() {
   const [selectedProblem, setSelectedProblem] = useState<TestProblem | null>(null);
   const [testResults, setTestResults] = useState<Record<string, 'pass' | 'fail' | 'pending'>>({});
+  const [savingResult, setSavingResult] = useState<string | null>(null);
+
+  // Load test results from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setTestResults(parsed);
+      }
+    } catch (error) {
+      console.warn('Failed to load test results from localStorage:', error);
+    }
+  }, []);
+
+  // Save test results to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(testResults));
+    } catch (error) {
+      console.warn('Failed to save test results to localStorage:', error);
+    }
+  }, [testResults]);
 
   const handleProblemSelect = (problem: TestProblem) => {
     setSelectedProblem(problem);
@@ -115,11 +140,22 @@ export default function TestPage() {
       ...prev,
       [problemId]: result
     }));
+    setSavingResult(result);
+    // Automatically go back to test list after 1 second (brief delay for visual feedback)
+    setTimeout(() => {
+      setSelectedProblem(null);
+      setSavingResult(null);
+    }, 1000);
   };
 
   const resetTest = () => {
     setSelectedProblem(null);
     setTestResults({});
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.warn('Failed to clear test results from localStorage:', error);
+    }
   };
 
   if (selectedProblem) {
@@ -176,20 +212,28 @@ export default function TestPage() {
 
             <div className="space-y-2">
               <h3 className="font-semibold text-gray-900">Test Result:</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleTestResult(selectedProblem.id, 'pass')}
-                  className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors"
-                >
-                  ✅ Pass
-                </button>
-                <button
-                  onClick={() => handleTestResult(selectedProblem.id, 'fail')}
-                  className="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-colors"
-                >
-                  ❌ Fail
-                </button>
-              </div>
+              {savingResult ? (
+                <div className={`flex-1 py-2 rounded-lg text-center text-white font-medium ${
+                  savingResult === 'pass' ? 'bg-green-600' : 'bg-red-600'
+                }`}>
+                  {savingResult === 'pass' ? '✅ Saved as Pass!' : '❌ Saved as Fail!'}
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleTestResult(selectedProblem.id, 'pass')}
+                    className="flex-1 bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition-colors font-medium"
+                  >
+                    ✅ Pass
+                  </button>
+                  <button
+                    onClick={() => handleTestResult(selectedProblem.id, 'fail')}
+                    className="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition-colors font-medium"
+                  >
+                    ❌ Fail
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
