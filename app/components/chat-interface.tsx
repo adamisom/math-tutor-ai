@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react';
 import { MessageList } from './message-list';
 import { MessageInput } from './message-input';
+import { 
+  manageAttemptTracking, 
+  generateProblemSignature, 
+  incrementAttemptCount,
+  getCurrentProblemFromMessages 
+} from '../lib/attempt-tracking';
 
 interface Message {
   id: string;
@@ -16,6 +22,7 @@ export function ChatInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [previousProblem, setPreviousProblem] = useState<string | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -62,7 +69,30 @@ export function ChatInterface() {
     setError(null);
 
     try {
-      // Call our API
+      // Track attempt metadata for this problem
+      const currentProblem = getCurrentProblemFromMessages(newMessages);
+      const attemptTracking = manageAttemptTracking(newMessages, previousProblem || undefined);
+      
+      // If this looks like an answer (not a new problem), increment attempt count
+      // Simple heuristic: if it's short and contains = or numbers, might be an answer
+      const looksLikeAnswer = input.trim().length < 50 && (input.includes('=') || /\d+/.test(input));
+      if (looksLikeAnswer && !attemptTracking.isNewProblem && currentProblem) {
+        const problemSig = generateProblemSignature(currentProblem);
+        incrementAttemptCount(problemSig);
+      }
+      
+      // Update previous problem if this is a new one
+      if (attemptTracking.isNewProblem && currentProblem) {
+        setPreviousProblem(currentProblem);
+      }
+      
+      // Get current attempt count for the problem
+      const problemSig = currentProblem ? generateProblemSignature(currentProblem) : '';
+      const attemptCount = problemSig ? 
+        (typeof window !== 'undefined' ? 
+          parseInt(localStorage.getItem(`attempts_${problemSig}`) || '0', 10) : 0) : 0;
+
+      // Call our API with attempt metadata
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -73,6 +103,11 @@ export function ChatInterface() {
             role: msg.role,
             content: msg.content,
           })),
+          attemptMetadata: {
+            previousProblem: previousProblem || undefined,
+            problemSignature: problemSig || undefined,
+            attemptCount: attemptCount,
+          },
         }),
       });
 
@@ -128,6 +163,7 @@ export function ChatInterface() {
   // Handle new problem - clear conversation
   const handleNewProblem = () => {
     setMessages([]);
+    setPreviousProblem(null);
     clearConversation();
     setHasUnsavedChanges(false);
     setError(null);

@@ -2,6 +2,8 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
 import { getSocraticPrompt, validateSocraticResponse, extractProblemFromMessages, getStricterSocraticPrompt } from '../../lib/prompts';
+import { mathVerificationTools } from '../../lib/math-tools';
+import { manageAttemptTracking, generateProblemSignature, getAttemptCount } from '../../lib/attempt-tracking';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,8 +20,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Parse request body
-    const { messages } = await req.json();
+    // Parse request body - may include attempt tracking metadata
+    const { messages, attemptMetadata } = await req.json();
+    // attemptMetadata: { previousProblem?: string, problemSignature?: string }
     
     // Validate messages format
     if (!Array.isArray(messages)) {
@@ -62,30 +65,57 @@ export async function POST(req: NextRequest) {
       console.log('Validated messages:', JSON.stringify(validMessages, null, 2));
     }
 
-    // Extract current problem context
+    // Extract current problem context and manage attempt tracking
     const currentProblem = extractProblemFromMessages(validMessages);
     const conversationLength = validMessages.length;
     const isStuck = conversationLength > 4; // Simple stuck detection
     
-    // Generate enhanced Socratic prompt with context
+    // Manage attempt tracking (server-side approximation)
+    // Note: Full tracking requires client-side localStorage, but we can approximate here
+    const previousProblem = attemptMetadata?.previousProblem;
+    const attemptTracking = manageAttemptTracking(validMessages, previousProblem);
+    const attemptCount = attemptMetadata?.attemptCount ?? attemptTracking.attemptCount;
+    
+    // Generate enhanced Socratic prompt with context including attempt count
     const systemPrompt = getSocraticPrompt({
-      problemText: currentProblem,
+      problemText: currentProblem || attemptTracking.currentProblem || undefined,
       conversationLength,
       isStuck,
-      studentLevel: 'auto' // Will be enhanced later
+      studentLevel: 'auto', // Will be enhanced later
+      attemptCount: attemptCount,
+      isNewProblem: attemptTracking.isNewProblem,
+      previousProblem: previousProblem,
     });
 
-    // Generate response using Anthropic
+    // Generate response using Anthropic with tool calling
     // Using Claude Sonnet 4.5 (latest available model)
-    const result = await streamText({
-      model: anthropic('claude-sonnet-4-5-20250929'),
-      system: systemPrompt,
-      messages: validMessages,
-    });
+    let result;
+    try {
+      result = await streamText({
+        model: anthropic('claude-sonnet-4-5-20250929'),
+        system: systemPrompt,
+        messages: validMessages,
+        tools: mathVerificationTools,
+        toolChoice: 'auto', // Claude decides when to call tools
+      });
+      
+      // Log tool usage in development
+      if (process.env.NODE_ENV === 'development') {
+        // Note: Tool calls are handled automatically by the SDK
+        // We can't easily intercept them in streamText, but they'll work
+        console.log('Tool calling enabled with', Object.keys(mathVerificationTools).length, 'tools');
+      }
+    } catch (toolError) {
+      // If tool calling fails, fall back to Claude without tools
+      console.warn('Tool calling failed, falling back to Claude-only mode:', toolError);
+      result = await streamText({
+        model: anthropic('claude-sonnet-4-5-20250929'),
+        system: systemPrompt + '\n\nNote: Mathematical verification tools are temporarily unavailable. Guide the student through questions and encourage them to verify their own work.',
+        messages: validMessages,
+      });
+    }
 
-    // For now, return streaming response directly
-    // TODO: Add response validation in Phase 3 when we implement the testing framework
-    // The validation would need to work with streaming responses which is more complex
+    // Return streaming response with tool results
     return result.toTextStreamResponse();
     
   } catch (error) {

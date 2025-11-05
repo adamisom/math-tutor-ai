@@ -6,13 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest",
+    "test:unit": "vitest run tests/unit"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.41",
     "ai": "^5.0.87",
     "katex": "^0.16.25",
     "lucide-react": "^0.552.0",
+    "nerdamer": "^1.1.13",
     "next": "16.0.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
