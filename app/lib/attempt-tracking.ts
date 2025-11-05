@@ -128,7 +128,11 @@ export function resetAttemptCount(problemSignature: string): void {
 /**
  * Get current problem from conversation
  */
-export function getCurrentProblemFromMessages(messages: any[]): string | null {
+interface Message {
+  role: string;
+  content: string;
+}
+export function getCurrentProblemFromMessages(messages: Message[]): string | null {
   // Look for the most recent problem statement in user messages
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
@@ -153,7 +157,7 @@ export function getCurrentProblemFromMessages(messages: any[]): string | null {
  * Track and manage attempt counts for the current problem
  */
 export function manageAttemptTracking(
-  messages: any[],
+  messages: Message[],
   previousProblem?: string
 ): {
   attemptCount: number;

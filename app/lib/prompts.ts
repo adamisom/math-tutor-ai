@@ -246,7 +246,8 @@ export const DIRECT_ANSWER_PATTERNS = [
  */
 export function validateSocraticResponse(
   response: string, 
-  context: PromptContext = {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _context: PromptContext = {}
 ): { valid: boolean; reason?: string; confidence: number } {
   
   // Check for direct answer patterns
@@ -328,7 +329,11 @@ REGENERATION REQUIREMENTS:
 /**
  * Extract current problem from conversation context
  */
-export function extractProblemFromMessages(messages: any[]): string {
+interface Message {
+  role: string;
+  content: string;
+}
+export function extractProblemFromMessages(messages: Message[]): string {
   // Look for the most recent problem in user messages
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];

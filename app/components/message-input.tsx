@@ -24,10 +24,16 @@ export function MessageInput({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (input.trim() && !isLoading) {
-        // Create a form event to pass to handleSubmit
-        const formEvent = new Event('submit', { bubbles: true, cancelable: true }) as any;
-        formEvent.preventDefault = () => {};
-        handleSubmit(formEvent);
+        // Create a synthetic form event
+        const form = e.currentTarget.closest('form');
+        if (form) {
+          const syntheticEvent = new Event('submit', { bubbles: true, cancelable: true }) as unknown as React.FormEvent<HTMLFormElement>;
+          Object.defineProperty(syntheticEvent, 'preventDefault', {
+            value: () => {},
+            writable: false,
+          });
+          handleSubmit(syntheticEvent);
+        }
       }
     }
   };

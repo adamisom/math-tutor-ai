@@ -105,7 +105,6 @@ describe('verifyIntegral', () => {
 
   it('should handle constant of integration variations', () => {
     const result1 = verifyIntegral('2x + 3', 'x^2 + 3x + C');
-    const result2 = verifyIntegral('2x + 3', 'x^2 + 3x');
     // Both should be considered correct (C is optional)
     expect(result1.is_correct).toBe(true);
   });

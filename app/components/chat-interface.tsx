@@ -28,7 +28,13 @@ export function ChatInterface() {
   useEffect(() => {
     const saved = loadConversation();
     if (saved.length > 0) {
-      setMessages(saved);
+      // Convert ConversationMessage[] to Message[] by adding ids
+      const messagesWithIds: Message[] = saved.map((msg, index) => ({
+        id: `saved-${index}-${Date.now()}`,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+      }));
+      setMessages(messagesWithIds);
     }
   }, []);
 
@@ -36,9 +42,13 @@ export function ChatInterface() {
   useEffect(() => {
     if (messages.length > 0) {
       setHasUnsavedChanges(true);
-      // Debounced save
+      // Debounced save - convert Message[] to ConversationMessage[]
       const timer = setTimeout(() => {
-        saveConversation(messages);
+        const conversationMessages: ConversationMessage[] = messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+        saveConversation(conversationMessages);
         setHasUnsavedChanges(false);
       }, 1000);
       return () => clearTimeout(timer);
@@ -217,8 +227,8 @@ export function ChatInterface() {
             <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-blue-800 font-medium">Welcome to your AI Math Tutor! 👋</p>
               <p className="text-blue-700 text-sm mt-1">
-                I'll guide you through math problems using questions to help you discover solutions yourself. 
-                Try typing a problem like "2x + 5 = 13" to get started!
+                I&apos;ll guide you through math problems using questions to help you discover solutions yourself. 
+                Try typing a problem like &quot;2x + 5 = 13&quot; to get started!
               </p>
             </div>
           )}
@@ -237,7 +247,11 @@ export function ChatInterface() {
 }
 
 // Simple localStorage utilities
-function saveConversation(messages: any[]) {
+interface ConversationMessage {
+  role: string;
+  content: string;
+}
+function saveConversation(messages: ConversationMessage[]) {
   try {
     localStorage.setItem('math-tutor-conversation', JSON.stringify(messages));
   } catch (error) {
@@ -255,7 +269,7 @@ function saveConversation(messages: any[]) {
   }
 }
 
-function loadConversation(): any[] {
+function loadConversation(): ConversationMessage[] {
   try {
     const saved = localStorage.getItem('math-tutor-conversation');
     return saved ? JSON.parse(saved) : [];

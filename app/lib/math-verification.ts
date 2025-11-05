@@ -7,8 +7,11 @@
 
 import nerdamer from 'nerdamer';
 // Import required modules for calculus
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('nerdamer/Calculus');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('nerdamer/Algebra');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('nerdamer/Solve');
 
 /**
@@ -50,18 +53,20 @@ export function verifyEquationSolution(
     }
     
     // Verify solution by substitution (primary method)
-    // Replace variable with value in the equation and check if it holds
-    const substituted = cleanedEquation.replace(new RegExp(`\\b${variable}\\b`, 'g'), value);
     try {
       // Evaluate both sides of the equation
       // For equations like "2x + 5 = 13", we need to check if left equals right
       if (cleanedEquation.includes('=')) {
         const [leftSide, rightSide] = cleanedEquation.split('=');
-        const leftWithValue = leftSide.replace(new RegExp(`\\b${variable}\\b`, 'g'), value);
-        const rightWithValue = rightSide.replace(new RegExp(`\\b${variable}\\b`, 'g'), value);
+        const leftExpr = nerdamer(leftSide.trim());
+        const rightExpr = nerdamer(rightSide.trim());
         
-        const leftEval = nerdamer(leftWithValue).evaluate();
-        const rightEval = nerdamer(rightWithValue).evaluate();
+        // Use nerdamer's evaluate with substitution object
+        // TypeScript types don't include this, but it works at runtime
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const leftEval = (leftExpr.evaluate as any)({ [variable]: numericValue });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rightEval = (rightExpr.evaluate as any)({ [variable]: numericValue });
         
         const leftValue = parseFloat(leftEval.toString());
         const rightValue = parseFloat(rightEval.toString());
@@ -72,14 +77,16 @@ export function verifyEquationSolution(
         return {
           is_correct: isCorrect,
           verification_steps: isCorrect
-            ? `Substituting ${variable} = ${value} into ${cleanedEquation}: ${leftValue} = ${rightValue} ✓`
-            : `Substituting ${variable} = ${value} into ${cleanedEquation}: ${leftValue} ≠ ${rightValue}`,
+            ? `Substituting ${variable} = ${value} into ${cleanedEquation}: ${leftValue} = ${rightValue} ✓ The solution satisfies the equation.`
+            : `Substituting ${variable} = ${value} into ${cleanedEquation}: ${leftValue} ≠ ${rightValue}. The solution does not satisfy the equation.`,
         };
       } else {
-        // Not an equation, just evaluate the expression
-        const evaluated = nerdamer(substituted).evaluate();
-        const isTrue = evaluated.toString() === 'true' || 
-                      Math.abs(parseFloat(evaluated.toString())) < 0.0001;
+        // Not an equation, just evaluate the expression with substitution
+        const expr = nerdamer(cleanedEquation);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const evaluated = (expr.evaluate as any)({ [variable]: numericValue });
+        const evalValue = parseFloat(evaluated.toString());
+        const isTrue = !isNaN(evalValue) && Math.abs(evalValue) < 0.0001;
         
         return {
           is_correct: isTrue,
@@ -110,7 +117,8 @@ export function verifyEquationSolution(
 export function verifyAlgebraicStep(
   originalExpression: string,
   resultingExpression: string,
-  operationDescribed?: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _operationDescribed?: string
 ): {
   is_valid: boolean;
   explanation: string;
@@ -118,9 +126,6 @@ export function verifyAlgebraicStep(
   error?: string;
 } {
   try {
-    const original = nerdamer(originalExpression.trim());
-    const resulting = nerdamer(resultingExpression.trim());
-    
     // Try to determine if the transformation is valid
     // This is tricky - we'll simplify both and see if they're equivalent
     const originalSimplified = nerdamer(originalExpression.trim()).toString();
@@ -149,7 +154,7 @@ export function verifyAlgebraicStep(
           const simplified = nerdamer(`(${left}) - (${right})`).toString();
           correctedExpression = `${simplified} = 0`;
         }
-      } catch (e) {
+      } catch {
         // Can't suggest correction
       }
       
@@ -279,7 +284,7 @@ export function verifyDerivative(
           ? `The derivative of ${cleanedFunction} is indeed ${derivativeSimplified}, which matches the claimed derivative.`
           : `The derivative of ${cleanedFunction} is ${derivativeSimplified}, which differs from the claimed derivative ${cleanedClaimed}.`,
       };
-      } catch (innerError) {
+      } catch {
         // Comparison failed, assume incorrect
         return {
           is_correct: false,
@@ -347,7 +352,7 @@ export function verifyIntegral(
           verification_steps: `The integral of ${cleanedFunction} is ${integralSimplified}. The claimed integral ${cleanedClaimed} is correct (verified by taking derivative).`,
         };
       }
-    } catch (e) {
+    } catch {
       // Derivative check failed, try direct comparison
     }
     
@@ -368,7 +373,7 @@ export function verifyIntegral(
           ? `The integral of ${cleanedFunction} is ${integralSimplified}, which matches the claimed integral (ignoring constant of integration).`
           : `The integral of ${cleanedFunction} is ${integralSimplified}, which differs from the claimed integral ${cleanedClaimed}.`,
       };
-      } catch (innerError) {
+      } catch {
         // Direct comparison failed, assume incorrect
         return {
           is_correct: false,
@@ -398,40 +403,100 @@ export function evaluateExpression(
   error?: string;
 } {
   try {
-    let exprString = expression.trim();
+    const exprString = expression.trim();
     
-    // Apply substitutions if provided
-    if (substitutions) {
-      Object.entries(substitutions).forEach(([varName, value]) => {
-        // Replace variable with value in the expression string
-        exprString = exprString.replace(new RegExp(`\\b${varName}\\b`, 'g'), value.toString());
-      });
+    // Basic validation: check for obviously invalid patterns
+    if (/^\s*$/.test(exprString)) {
+      return {
+        result: '',
+        explanation: 'Empty expression provided.',
+        error: 'INVALID_EXPRESSION'
+      };
     }
     
-    const expr = nerdamer(exprString);
+    // Check for invalid operator sequences
+    if (/[\+\-\*\/]\s*[\+\-\*\/]/.test(exprString) || /\+\+|\-\-/.test(exprString)) {
+      return {
+        result: '',
+        explanation: `Invalid expression format: ${expression}. Contains invalid operator sequences.`,
+        error: 'INVALID_EXPRESSION'
+      };
+    }
     
-    // Try to evaluate numerically first
+    let expr;
     try {
-      const numericResult = expr.evaluate();
-      const numericValue = parseFloat(numericResult.toString());
-      
-      if (!isNaN(numericValue)) {
+      expr = nerdamer(exprString);
+    } catch (parseError) {
+      return {
+        result: '',
+        explanation: `Error parsing expression: ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+        error: 'PARSE_ERROR'
+      };
+    }
+    
+    // Try to evaluate numerically first (with substitutions if provided)
+    if (substitutions) {
+      try {
+        // Apply substitutions using evaluate with substitution object
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const numericResult = (expr.evaluate as any)(substitutions);
+        const numericValue = parseFloat(numericResult.toString());
+        
+        if (!isNaN(numericValue)) {
+          return {
+            result: numericValue.toString(),
+            explanation: `Evaluating ${expression} with ${JSON.stringify(substitutions)} gives ${numericValue}.`,
+          };
+        }
+        // If evaluation succeeded but result is NaN, fall through to symbolic
+        const simplified = expr.toString();
         return {
-          result: numericValue.toString(),
-          explanation: `Evaluating ${expression}${substitutions ? ` with ${JSON.stringify(substitutions)}` : ''} gives ${numericValue}.`,
+          result: simplified,
+          explanation: `The expression ${expression} with ${JSON.stringify(substitutions)} simplifies to ${simplified}.`,
+        };
+      } catch {
+        // Not a numeric expression with substitutions, try symbolic
+        const simplified = expr.toString();
+        return {
+          result: simplified,
+          explanation: `The expression ${expression} with ${JSON.stringify(substitutions)} simplifies to ${simplified}.`,
         };
       }
-    } catch (e) {
-      // Not a numeric expression, try symbolic
+    } else {
+      // No substitutions - check if it contains variables (symbolic expression)
+      const hasVariables = /[a-z]/i.test(expression);
+      
+      if (hasVariables) {
+        // Symbolic expression - simplify it
+        const simplified = expr.toString();
+        return {
+          result: simplified,
+          explanation: `The expression ${expression} simplifies to ${simplified}.`,
+        };
+      } else {
+        // Pure numeric expression - try to evaluate
+        try {
+          const numericResult = expr.evaluate();
+          const numericValue = parseFloat(numericResult.toString());
+          
+          if (!isNaN(numericValue)) {
+            return {
+              result: numericValue.toString(),
+              explanation: `Evaluating ${expression} gives ${numericValue}.`,
+            };
+          }
+        } catch {
+          // Evaluation failed, return symbolic form
+        }
+        
+        // Fallback: return symbolic form
+        const simplified = expr.toString();
+        return {
+          result: simplified,
+          explanation: `The expression ${expression} simplifies to ${simplified}.`,
+        };
+      }
     }
-    
-    // Simplify symbolically
-    const simplified = expr.toString();
-    
-    return {
-      result: simplified,
-      explanation: `The expression ${expression}${substitutions ? ` with ${JSON.stringify(substitutions)}` : ''} simplifies to ${simplified}.`,
-    };
   } catch (error) {
     return {
       result: '',

@@ -701,22 +701,20 @@ const STORAGE_KEY = 'math-tutor-test-results';
 
 export default function TestPage() {
   const [selectedProblem, setSelectedProblem] = useState<TestProblem | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, 'pass' | 'fail' | 'pending'>>({});
-  const [savingResult, setSavingResult] = useState<string | null>(null);
-  const [copiedText, setCopiedText] = useState<string | null>(null);
-
-  // Load test results from localStorage on mount
-  useEffect(() => {
+  // Initialize state from localStorage using function initializer
+  const [testResults, setTestResults] = useState<Record<string, 'pass' | 'fail' | 'pending'>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        setTestResults(parsed);
+        return JSON.parse(saved);
       }
     } catch (error) {
       console.warn('Failed to load test results from localStorage:', error);
     }
-  }, []);
+    return {};
+  });
+  const [savingResult, setSavingResult] = useState<string | null>(null);
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
   // Save test results to localStorage whenever they change
   useEffect(() => {
@@ -862,7 +860,7 @@ export default function TestPage() {
 
               <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded p-2">
                 <p className="text-xs text-yellow-800">
-                  <strong>Expected Behavior:</strong> Claude should verify using tools, give only tiny hints when student doesn't try, and maintain Socratic method (unless 20+ attempts).
+                  <strong>Expected Behavior:</strong> Claude should verify using tools, give only tiny hints when student doesn&apos;t try, and maintain Socratic method (unless 20+ attempts).
                 </p>
               </div>
             </div>
@@ -921,8 +919,8 @@ export default function TestPage() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <h2 className="font-semibold text-blue-900 mb-2">🧪 Phase 2: Tool Calling & Verification Testing</h2>
             <p className="text-blue-800 text-sm">
-              This interface helps you systematically test the AI tutor's Socratic methodology with math verification tools. 
-              Select a problem below to open the chat interface with testing guidelines. Use the "Tricky Inputs" section to test adversarial scenarios.
+              This interface helps you systematically test the AI tutor&apos;s Socratic methodology with math verification tools. 
+              Select a problem below to open the chat interface with testing guidelines. Use the &quot;Tricky Inputs&quot; section to test adversarial scenarios.
             </p>
           </div>
 
@@ -1001,7 +999,7 @@ export default function TestPage() {
           <ul className="text-yellow-700 text-sm space-y-1">
             <li>1. Select a problem to open the testing interface</li>
             <li>2. Copy the problem text into the chat</li>
-            <li>3. Evaluate the AI's response against the patterns shown</li>
+            <li>3. Evaluate the AI&apos;s response against the patterns shown</li>
             <li>4. Continue the conversation to test multi-turn behavior</li>
             <li>5. Mark the test as Pass or Fail based on Socratic methodology</li>
           </ul>

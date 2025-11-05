@@ -1,9 +1,9 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
-import { getSocraticPrompt, validateSocraticResponse, extractProblemFromMessages, getStricterSocraticPrompt } from '../../lib/prompts';
+import { getSocraticPrompt, extractProblemFromMessages } from '../../lib/prompts';
 import { mathVerificationTools } from '../../lib/math-tools';
-import { manageAttemptTracking, generateProblemSignature, getAttemptCount } from '../../lib/attempt-tracking';
+import { manageAttemptTracking } from '../../lib/attempt-tracking';
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,15 +37,19 @@ export async function POST(req: NextRequest) {
 
     // Filter and validate messages - remove any with empty content
     // Also ensure messages are in the format expected by AI SDK
+    interface MessageInput {
+      role: string;
+      content: string | number;
+    }
     const validMessages = messages
-      .filter((msg: any) => {
+      .filter((msg: MessageInput) => {
         if (!msg.role || (!msg.content && msg.content !== 0)) return false;
         // Ensure content is a non-empty string
         const contentStr = typeof msg.content === 'string' ? msg.content : String(msg.content || '');
         return contentStr.trim().length > 0;
       })
-      .map((msg: any) => ({
-        role: msg.role,
+      .map((msg: MessageInput) => ({
+        role: msg.role as 'user' | 'assistant' | 'system',
         content: typeof msg.content === 'string' ? msg.content.trim() : String(msg.content || '').trim(),
       }));
 
@@ -123,10 +127,13 @@ export async function POST(req: NextRequest) {
     
     // Extract error message from various error formats
     let errorMessage = 'Something went wrong. Please try again.';
-    let statusCode = 500;
     
     // Check if it's an AI SDK error with responseBody
-    const errorAny = error as any;
+    interface ErrorWithResponseBody {
+      responseBody?: string | { error?: { message?: string } };
+      statusCode?: number;
+    }
+    const errorAny = error as ErrorWithResponseBody;
     if (errorAny?.responseBody) {
       try {
         const body = typeof errorAny.responseBody === 'string' 
@@ -135,11 +142,10 @@ export async function POST(req: NextRequest) {
         if (body?.error?.message) {
           errorMessage = body.error.message;
         }
-      } catch (e) {
+      } catch {
         // If parsing fails, use the string directly
         if (typeof errorAny.responseBody === 'string' && errorAny.responseBody.includes('text content blocks must be non-empty')) {
           errorMessage = 'Invalid message format. Please try rephrasing your problem or refresh the page.';
-          statusCode = 400;
         }
       }
     }
