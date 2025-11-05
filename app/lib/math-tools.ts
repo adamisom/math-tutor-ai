@@ -26,7 +26,17 @@ export const verifyEquationSolutionTool = tool({
     claimed_solution: z.string().describe('The student\'s claimed solution (e.g., "x = 4")'),
   }),
   execute: async ({ equation, claimed_solution }) => {
+    // Log tool call in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Call] verify_equation_solution:', {
+        equation,
+        claimed_solution,
+      });
+    }
     const result = verifyEquationSolution(equation, claimed_solution);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Result] verify_equation_solution:', result);
+    }
     return result;
   },
 });
@@ -43,7 +53,18 @@ export const verifyAlgebraicStepTool = tool({
     operation_described: z.string().optional().describe('Optional: Description of what operation was performed (e.g., "subtract 5 from both sides")'),
   }),
   execute: async ({ original_expression, resulting_expression, operation_described }) => {
+    // Log tool call in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Call] verify_algebraic_step:', {
+        original_expression,
+        resulting_expression,
+        operation_described,
+      });
+    }
     const result = verifyAlgebraicStep(original_expression, resulting_expression, operation_described);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Result] verify_algebraic_step:', result);
+    }
     return result;
   },
 });
@@ -59,7 +80,17 @@ export const verifyCalculationTool = tool({
     claimed_result: z.string().describe('The student\'s claimed result (e.g., "40")'),
   }),
   execute: async ({ expression, claimed_result }) => {
+    // Log tool call in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Call] verify_calculation:', {
+        expression,
+        claimed_result,
+      });
+    }
     const result = verifyCalculation(expression, claimed_result);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Result] verify_calculation:', result);
+    }
     return result;
   },
 });
@@ -75,7 +106,17 @@ export const verifyDerivativeTool = tool({
     claimed_derivative: z.string().describe('The student\'s claimed derivative (e.g., "2x + 3")'),
   }),
   execute: async ({ function: function_, claimed_derivative }) => {
+    // Log tool call in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Call] verify_derivative:', {
+        function: function_,
+        claimed_derivative,
+      });
+    }
     const result = verifyDerivative(function_, claimed_derivative);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Result] verify_derivative:', result);
+    }
     return result;
   },
 });
@@ -91,7 +132,17 @@ export const verifyIntegralTool = tool({
     claimed_integral: z.string().describe('The student\'s claimed integral (e.g., "x^2 + 3x + C")'),
   }),
   execute: async ({ function: function_, claimed_integral }) => {
+    // Log tool call in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Call] verify_integral:', {
+        function: function_,
+        claimed_integral,
+      });
+    }
     const result = verifyIntegral(function_, claimed_integral);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Result] verify_integral:', result);
+    }
     return result;
   },
 });
@@ -107,7 +158,17 @@ export const evaluateExpressionTool = tool({
     substitutions: z.record(z.string(), z.number()).optional().describe('Optional: Variable substitutions (e.g., {"x": 2})'),
   }),
   execute: async ({ expression, substitutions }) => {
+    // Log tool call in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Call] evaluate_expression:', {
+        expression,
+        substitutions,
+      });
+    }
     const result = evaluateExpression(expression, substitutions);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Tool Result] evaluate_expression:', result);
+    }
     return result;
   },
 });

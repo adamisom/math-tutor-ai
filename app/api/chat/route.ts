@@ -5,6 +5,22 @@ import { getSocraticPrompt, extractProblemFromMessages } from '../../lib/prompts
 import { mathVerificationTools } from '../../lib/math-tools';
 import { manageAttemptTracking } from '../../lib/attempt-tracking';
 
+// Shared store for tool calls in this request (for testing/logging)
+interface ToolCallInfo {
+  toolName: string;
+  args: any;
+  result: any;
+  timestamp: number;
+}
+
+// Store tool calls per request (using request ID to avoid conflicts)
+const toolCallStore = new Map<string, ToolCallInfo[]>();
+
+// Generate a simple request ID
+function getRequestId(): string {
+  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Validate API key
@@ -105,8 +121,6 @@ export async function POST(req: NextRequest) {
       
       // Log tool usage in development
       if (process.env.NODE_ENV === 'development') {
-        // Note: Tool calls are handled automatically by the SDK
-        // We can't easily intercept them in streamText, but they'll work
         console.log('Tool calling enabled with', Object.keys(mathVerificationTools).length, 'tools');
       }
     } catch (toolError) {
@@ -119,7 +133,74 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Return streaming response with tool results
+    // Only inject tool calls in development mode (for testing/logging)
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    if (isDevelopment) {
+      // Track tool calls for this request
+      const requestId = getRequestId();
+      toolCallStore.set(requestId, []);
+      
+      // Use fullStream to capture tool calls and inject them into the response
+      const encoder = new TextEncoder();
+      let toolCallInfo = '';
+      let toolCallInfoSent = false;
+      
+      // Create a custom stream that includes tool call information
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            // Read from fullStream to capture tool calls
+            for await (const chunk of result.fullStream) {
+              // Handle tool call events
+              if (chunk.type === 'tool-call') {
+                const toolName = chunk.toolName;
+                const args = chunk.args;
+                toolCallInfo += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+                toolCallInfo += `[TOOL CALL] ${toolName}\n`;
+                toolCallInfo += `Arguments: ${JSON.stringify(args, null, 2)}\n`;
+              } else if (chunk.type === 'tool-result') {
+                const toolName = chunk.toolName;
+                const result = chunk.result;
+                toolCallInfo += `[TOOL RESULT] ${toolName}\n`;
+                toolCallInfo += `Result: ${JSON.stringify(result, null, 2)}\n`;
+                toolCallInfo += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+              } else if (chunk.type === 'text-delta') {
+                // If we have tool call info, prepend it before the first text
+                if (toolCallInfo && !toolCallInfoSent) {
+                  controller.enqueue(encoder.encode(toolCallInfo));
+                  toolCallInfoSent = true;
+                }
+                // Forward text deltas
+                controller.enqueue(encoder.encode(chunk.textDelta));
+              } else if (chunk.type === 'text') {
+                // Full text chunk
+                if (toolCallInfo && !toolCallInfoSent) {
+                  controller.enqueue(encoder.encode(toolCallInfo));
+                  toolCallInfoSent = true;
+                }
+                controller.enqueue(encoder.encode(chunk.text));
+              }
+            }
+          } catch (error) {
+            console.error('Stream error:', error);
+          } finally {
+            // Clean up
+            toolCallStore.delete(requestId);
+            controller.close();
+          }
+        }
+      });
+
+      // Return the custom stream with tool call info (development only)
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+        },
+      });
+    }
+
+    // Production: Return normal streaming response without tool call info
     return result.toTextStreamResponse();
     
   } catch (error) {
