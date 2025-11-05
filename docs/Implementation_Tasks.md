@@ -12,9 +12,10 @@
 | Phase | Tasks | Est. Hours | Dependencies | Critical? |
 |-------|-------|------------|--------------|-----------|
 | **Phase 1: Foundation** | 12 tasks | 6-8h | None | ✅ |
-| **Phase 2: Image Upload** | 15 tasks | 8-10h | Phase 1 complete | ✅ |
-| **Phase 3: LaTeX + Testing** | 13 tasks | 6-8h | Phase 2 complete | ✅ |
-| **Phase 4: Deploy + Polish** | 11 tasks | 4-6h | Phase 3 complete | ✅ |
+| **Phase 2: Math Verification** | 18 tasks | 8-10h | Phase 1 complete | ✅ |
+| **Phase 3: Image Upload** | 15 tasks | 8-10h | Phase 2 complete | ✅ |
+| **Phase 4: LaTeX + Testing** | 13 tasks | 6-8h | Phase 3 complete | ✅ |
+| **Phase 5: Deploy + Polish** | 11 tasks | 4-6h | Phase 4 complete | ✅ |
 
 ---
 
@@ -208,25 +209,225 @@
 
 ---
 
-## Phase 2: Image Upload (Day 2)
-**Goal:** Image upload with multi-problem detection  
+## Phase 2: Math Verification with Tool Calling (Day 2)
+**Goal:** Ensure mathematical correctness using symbolic math verification tools  
 **Total Time:** 8-10 hours
 
-### 2.1 Image Upload Component (90 minutes)
+### 2.1 Math Library Integration (90 minutes)
 **Priority:** Critical  
 **Dependencies:** Phase 1 complete
 
 #### Tasks:
-- [ ] **2.1.1** Create `components/image-upload.tsx` (30 min)
-- [ ] **2.1.2** Add drag-and-drop functionality (30 min)
+- [ ] **2.1.1** Install nerdamer library (10 min)
+  ```bash
+  npm install nerdamer
+  ```
+- [ ] **2.1.2** Create `lib/math-verification.ts` (30 min)
+  - Set up nerdamer for symbolic math
+  - Create wrapper functions for verification
+  - Test basic operations (algebra, equations)
+- [ ] **2.1.3** Test calculus operations (30 min)
+  - Test derivatives
+  - Test integrals
+  - Verify K-12 math operations
+- [ ] **2.1.4** Create error handling for math library (20 min)
+  - Handle invalid expressions
+  - Handle parsing errors
+  - Return user-friendly error messages
+
+**Acceptance Criteria:**
+- ✅ nerdamer installed and working
+- ✅ Can verify algebraic equations
+- ✅ Can verify derivatives and integrals
+- ✅ Error handling works for invalid input
+
+---
+
+### 2.2 Tool Calling Infrastructure (120 minutes)
+**Priority:** Critical  
+**Dependencies:** 2.1 complete
+
+#### Tasks:
+- [ ] **2.2.1** Set up Anthropic tool calling (30 min)
+  - Import tool definitions from AI SDK
+  - Configure tool schema
+  - Test basic tool calling
+- [ ] **2.2.2** Create tool definitions (45 min)
+  - `verify_equation_solution` tool
+  - `verify_algebraic_step` tool
+  - `verify_calculation` tool
+  - `verify_derivative` tool
+  - `verify_integral` tool
+  - `evaluate_expression` tool
+- [ ] **2.2.3** Implement tool handlers (30 min)
+  - Connect tools to nerdamer functions
+  - Format tool responses
+  - Handle tool errors
+- [ ] **2.2.4** Add tool calling to API route (15 min)
+  - Integrate tools into streamText call
+  - Configure toolChoice: 'auto'
+  - Test tool invocation
+
+**Acceptance Criteria:**
+- ✅ Tool calling infrastructure works
+- ✅ All 6 tools defined and functional
+- ✅ Tools integrate with nerdamer
+- ✅ Claude can call tools during responses
+
+---
+
+### 2.3 Verification Tool Implementation (150 minutes)
+**Priority:** Critical  
+**Dependencies:** 2.2 complete
+
+#### Tasks:
+- [ ] **2.3.1** Implement equation solution verification (30 min)
+  - Parse equation and solution
+  - Substitute solution into equation
+  - Return verification result
+- [ ] **2.3.2** Implement algebraic step verification (30 min)
+  - Verify algebraic manipulations
+  - Check if step is mathematically valid
+  - Return validation result
+- [ ] **2.3.3** Implement calculation verification (20 min)
+  - Evaluate expressions
+  - Compare with student's answer
+  - Return correctness
+- [ ] **2.3.4** Implement derivative verification (30 min)
+  - Calculate correct derivative
+  - Compare with student's answer
+  - Return verification with steps
+- [ ] **2.3.5** Implement integral verification (30 min)
+  - Calculate correct integral
+  - Compare with student's answer
+  - Handle constant of integration
+- [ ] **2.3.6** Implement expression evaluation (10 min)
+  - Evaluate numerical expressions
+  - Evaluate symbolic expressions with substitutions
+  - Return results with explanations
+
+**Acceptance Criteria:**
+- ✅ All verification tools work correctly
+- ✅ Handle edge cases (invalid input, parsing errors)
+- ✅ Return clear verification results
+- ✅ Tools work for K-12 and calculus problems
+
+---
+
+### 2.4 Gentle Error Handling System (90 minutes)
+**Priority:** Critical  
+**Dependencies:** 2.3 complete
+
+#### Tasks:
+- [ ] **2.4.1** Create error handling strategy (30 min)
+  - Define progressive hint escalation
+  - First wrong: Gentle verification question
+  - Second wrong: Slightly more direct question
+  - Third wrong: More specific guidance
+  - Fourth+: Concrete hint (not answer)
+- [ ] **2.4.2** Track wrong answer attempts (20 min)
+  - Track per problem/student
+  - Count consecutive wrong answers
+  - Reset on correct answer
+- [ ] **2.4.3** Implement gentle response generation (30 min)
+  - Use tool results to guide (not correct)
+  - Generate Socratic questions from verification
+  - Never say "That's wrong" - use questions
+- [ ] **2.4.4** Add word problem equation extraction (10 min)
+  - Extract equations from word problems
+  - Pass to verification tools
+  - Handle extraction failures gracefully
+
+**Acceptance Criteria:**
+- ✅ Wrong answers trigger gentle questions
+- ✅ Progressive hint escalation works
+- ✅ Never directly corrects student
+- ✅ Maintains Socratic methodology
+
+---
+
+### 2.5 Prompt Updates for Tool Integration (60 minutes)
+**Priority:** Critical  
+**Dependencies:** 2.4 complete
+
+#### Tasks:
+- [ ] **2.5.1** Update system prompt with tool guidance (30 min)
+  - Add instructions for tool usage
+  - Emphasize gentle guidance when tools indicate wrong answers
+  - Stress using verification to guide, not correct
+- [ ] **2.5.2** Add tool result interpretation (20 min)
+  - Guide Claude on how to use tool results
+  - Emphasize Socratic questioning from verification
+  - Never directly state tool results as corrections
+- [ ] **2.5.3** Test prompt with tool integration (10 min)
+  - Verify Claude uses tools appropriately
+  - Verify gentle guidance maintained
+  - Verify no direct corrections
+
+**Acceptance Criteria:**
+- ✅ System prompt guides tool usage correctly
+- ✅ Claude maintains Socratic method with tools
+- ✅ Wrong answers handled gently
+- ✅ Tool results used for guidance, not correction
+
+---
+
+### 2.6 Testing & Validation (90 minutes)
+**Priority:** Critical  
+**Dependencies:** 2.5 complete
+
+#### Tasks:
+- [ ] **2.6.1** Test algebra problems (20 min)
+  - Simple equations: "2x + 5 = 13"
+  - Multi-step: "3(x - 4) = 15"
+  - Verify correct answers celebrated
+  - Verify wrong answers trigger gentle questions
+- [ ] **2.6.2** Test geometry problems (15 min)
+  - Area calculations
+  - Verify correct calculations
+  - Verify wrong answers handled gently
+- [ ] **2.6.3** Test fraction problems (15 min)
+  - Addition: "3/4 + 1/2"
+  - Verify intermediate steps
+  - Verify wrong answers handled gently
+- [ ] **2.6.4** Test word problems (20 min)
+  - Extract equations correctly
+  - Verify solutions
+  - Verify gentle handling of wrong answers
+- [ ] **2.6.5** Test calculus problems (20 min)
+  - Derivatives: "x^2 + 3x"
+  - Integrals: "2x + 3"
+  - Verify correct answers
+  - Verify wrong answers handled gently
+
+**Acceptance Criteria:**
+- ✅ All problem types verified correctly
+- ✅ Correct answers celebrated appropriately
+- ✅ Wrong answers trigger gentle Socratic questions
+- ✅ Progressive hint escalation works
+- ✅ No direct corrections given
+
+---
+
+## Phase 3: Image Upload (Day 3)
+**Goal:** Image upload with multi-problem detection  
+**Total Time:** 8-10 hours
+
+### 3.1 Image Upload Component (90 minutes)
+**Priority:** Critical  
+**Dependencies:** Phase 2 complete
+
+#### Tasks:
+- [ ] **3.1.1** Create `components/image-upload.tsx` (30 min)
+- [ ] **3.1.2** Add drag-and-drop functionality (30 min)
   - File drop zone with visual feedback
   - Handle drag events properly
   - Prevent default browser behavior
-- [ ] **2.1.3** Add file input button (15 min)
+- [ ] **3.1.3** Add file input button (15 min)
   - Styled file input button
   - Accept only image types
   - Mobile camera access (`capture="environment"`)
-- [ ] **2.1.4** Add image preview (15 min)
+- [ ] **3.1.4** Add image preview (15 min)
   - Show thumbnail after selection
   - Remove/replace functionality
 
@@ -238,21 +439,21 @@
 
 ---
 
-### 2.2 Image Validation & Processing (75 minutes)
+### 3.2 Image Validation & Processing (75 minutes)
 **Priority:** Critical  
-**Dependencies:** 2.1 complete
+**Dependencies:** 3.1 complete
 
 #### Tasks:
-- [ ] **2.2.1** Create `lib/image-processing.ts` (20 min)
-- [ ] **2.2.2** Add image validation (25 min)
+- [ ] **3.2.1** Create `lib/image-processing.ts` (20 min)
+- [ ] **3.2.2** Add image validation (25 min)
   - File type checking (PNG, JPEG, WebP)
   - Size limits (10MB max)
   - Dimension checking (min 100x100px)
-- [ ] **2.2.3** Add image compression (20 min)
+- [ ] **3.2.3** Add image compression (20 min)
   - Resize large images to max 2048px width
   - Compress to reasonable file size
   - Maintain aspect ratio
-- [ ] **2.2.4** Convert to base64 (10 min)
+- [ ] **3.2.4** Convert to base64 (10 min)
   - File to base64 conversion
   - Handle conversion errors
 
@@ -264,25 +465,25 @@
 
 ---
 
-### 2.3 Vision API Integration (120 minutes)
+### 3.3 Vision API Integration (120 minutes)
 **Priority:** Critical  
-**Dependencies:** 2.2 complete
+**Dependencies:** 3.2 complete
 
 #### Tasks:
-- [ ] **2.3.1** Update API route for images (30 min)
+- [ ] **3.3.1** Update API route for images (30 min)
   - Handle image messages in `/api/chat`
   - Process base64 images for Claude Vision
   - Add image extraction prompt
-- [ ] **2.3.2** Implement problem extraction (45 min)
+- [ ] **3.3.2** Implement problem extraction (45 min)
   - Create extraction-specific system prompt
   - Handle multi-line problems
   - Detect diagrams and word problems
-- [ ] **2.3.3** Add response parsing (30 min)
+- [ ] **3.3.3** Add response parsing (30 min)
   - Parse SINGLE_PROBLEM responses
   - Parse TWO_PROBLEMS responses  
   - Parse MULTIPLE_PROBLEMS responses
   - Handle SOLUTION_DETECTED and UNCLEAR_IMAGE
-- [ ] **2.3.4** Add confidence detection (15 min)
+- [ ] **3.3.4** Add confidence detection (15 min)
   - Detect UNCERTAIN responses
   - Parse confidence levels
   - Trigger user confirmation flow
@@ -295,21 +496,21 @@
 
 ---
 
-### 2.4 Multi-Problem Selection UI (90 minutes)
+### 3.4 Multi-Problem Selection UI (90 minutes)
 **Priority:** Critical  
-**Dependencies:** 2.3 complete
+**Dependencies:** 3.3 complete
 
 #### Tasks:
-- [ ] **2.4.1** Create `components/problem-selector.tsx` (30 min)
-- [ ] **2.4.2** Design selection interface (30 min)
+- [ ] **3.4.1** Create `components/problem-selector.tsx` (30 min)
+- [ ] **3.4.2** Design selection interface (30 min)
   - Display problems as numbered cards
   - Clear visual hierarchy
   - Mobile-friendly touch targets
-- [ ] **2.4.3** Add selection handling (20 min)
+- [ ] **3.4.3** Add selection handling (20 min)
   - Click/touch selection
   - Cancel option to go back
   - Integration with conversation state
-- [ ] **2.4.4** Add confirmation dialog (10 min)
+- [ ] **3.4.4** Add confirmation dialog (10 min)
   - For uncertain extractions
   - Editable text field
   - Confirm/cancel actions
@@ -322,20 +523,20 @@
 
 ---
 
-### 2.5 State Management Updates (60 minutes)
+### 3.5 State Management Updates (60 minutes)
 **Priority:** Critical  
-**Dependencies:** 2.4 complete
+**Dependencies:** 3.4 complete
 
 #### Tasks:
-- [ ] **2.5.1** Update conversation state types (15 min)
+- [ ] **3.5.1** Update conversation state types (15 min)
   - Add ConversationState enum
   - Add pending problems state
   - Add extraction confirmation state
-- [ ] **2.5.2** Implement state transitions (25 min)
+- [ ] **3.5.2** Implement state transitions (25 min)
   - Chatting → Problem Selection
   - Problem Selection → Chatting
   - Chatting → Confirmation → Chatting
-- [ ] **2.5.3** Update chat interface (20 min)
+- [ ] **3.5.3** Update chat interface (20 min)
   - Conditional rendering based on state
   - Handle image upload results
   - Manage problem selection flow
@@ -348,24 +549,24 @@
 
 ---
 
-### 2.6 Error Handling & Edge Cases (75 minutes)
+### 3.6 Error Handling & Edge Cases (75 minutes)
 **Priority:** Medium  
-**Dependencies:** 2.5 complete
+**Dependencies:** 3.5 complete
 
 #### Tasks:
-- [ ] **2.6.1** Handle Vision API failures (20 min)
+- [ ] **3.6.1** Handle Vision API failures (20 min)
   - Network errors during image processing
   - Invalid or corrupted images
   - API rate limits
-- [ ] **2.6.2** Handle edge case responses (25 min)
+- [ ] **3.6.2** Handle edge case responses (25 min)
   - No problems detected in image
   - Multiple problems (>2) detected
   - Solution/homework detected
-- [ ] **2.6.3** Add graceful degradation (20 min)
+- [ ] **3.6.3** Add graceful degradation (20 min)
   - Fallback to manual problem entry
   - Clear error messages with next steps
   - Option to retry with different image
-- [ ] **2.6.4** Add cost protection (10 min)
+- [ ] **3.6.4** Add cost protection (10 min)
   - Warn about large image costs
   - Track Vision API usage
   - Implement daily limits during development
@@ -378,25 +579,25 @@
 
 ---
 
-### 2.7 Image Upload Testing (90 minutes)
+### 3.7 Image Upload Testing (90 minutes)
 **Priority:** Critical  
-**Dependencies:** 2.6 complete
+**Dependencies:** 3.6 complete
 
 #### Tasks:
-- [ ] **2.7.1** Test single problem images (20 min)
+- [ ] **3.7.1** Test single problem images (20 min)
   - Clear printed equations
   - Handwritten problems
   - Word problems with diagrams
-- [ ] **2.7.2** Test multi-problem images (20 min)
+- [ ] **3.7.2** Test multi-problem images (20 min)
   - Two clear problems
   - Problems with different difficulty
   - Mixed problem types
-- [ ] **2.7.3** Test edge cases (25 min)
+- [ ] **3.7.3** Test edge cases (25 min)
   - Blurry/unclear images
   - Solution uploads (homework)
   - Non-math content
   - Very large/small images
-- [ ] **2.7.4** Test mobile experience (25 min)
+- [ ] **3.7.4** Test mobile experience (25 min)
   - Camera upload from mobile
   - Touch interactions
   - Responsive layout
@@ -409,7 +610,7 @@
 
 ---
 
-## Phase 3: LaTeX + Testing (Day 3)
+## Phase 4: LaTeX + Testing (Day 4)
 **Goal:** Math rendering + developer testing framework  
 **Total Time:** 6-8 hours
 
@@ -580,11 +781,11 @@
 
 ---
 
-## Phase 4: Deploy + Polish (Day 4)
+## Phase 5: Deploy + Polish (Day 5)
 **Goal:** Production deployment with professional polish  
 **Total Time:** 4-6 hours
 
-### 4.1 Production Build Preparation (45 minutes)
+### 5.1 Production Build Preparation (45 minutes)
 **Priority:** Critical  
 **Dependencies:** Phase 3 complete
 
@@ -610,7 +811,7 @@
 
 ---
 
-### 4.2 Vercel Deployment (60 minutes)
+### 5.2 Vercel Deployment (60 minutes)
 **Priority:** Critical  
 **Dependencies:** 4.1 complete
 
@@ -640,7 +841,7 @@
 
 ---
 
-### 4.3 UI/UX Polish (90 minutes)
+### 5.3 UI/UX Polish (90 minutes)
 **Priority:** Medium  
 **Dependencies:** 4.2 complete
 
@@ -666,7 +867,7 @@
 
 ---
 
-### 4.4 Error Handling Polish (60 minutes)
+### 5.4 Error Handling Polish (60 minutes)
 **Priority:** High  
 **Dependencies:** 4.3 complete
 
@@ -692,7 +893,7 @@
 
 ---
 
-### 4.5 Performance Optimization (45 minutes)
+### 5.5 Performance Optimization (45 minutes)
 **Priority:** Medium  
 **Dependencies:** 4.4 complete
 
@@ -718,7 +919,7 @@
 
 ---
 
-### 4.6 Mobile Experience Polish (60 minutes)
+### 5.6 Mobile Experience Polish (60 minutes)
 **Priority:** Medium  
 **Dependencies:** 4.5 complete
 
@@ -744,7 +945,7 @@
 
 ---
 
-### 4.7 Documentation & Demo (75 minutes)
+### 5.7 Documentation & Demo (75 minutes)
 **Priority:** Medium  
 **Dependencies:** 4.6 complete
 
@@ -774,8 +975,9 @@
 
 ### **Phase Gates (Must Complete Before Proceeding)**
 1. **Phase 1 → Phase 2:** Basic chat and Socratic prompting working
-2. **Phase 2 → Phase 3:** Image upload and problem extraction working  
-3. **Phase 3 → Phase 4:** LaTeX rendering and testing complete
+2. **Phase 2 → Phase 3:** Math verification with tool calling working
+3. **Phase 3 → Phase 4:** Image upload and problem extraction working  
+4. **Phase 4 → Phase 5:** LaTeX rendering and testing complete
 4. **Phase 4 → Done:** Production deployment successful
 
 ### **Daily Checkpoints**
