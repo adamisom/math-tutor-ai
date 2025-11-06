@@ -111,7 +111,17 @@ export const verifyCalculationTool = tool({
  * Checks if a student's derivative calculation is correct (calculus)
  */
 export const verifyDerivativeTool = tool({
-  description: `Verify if a student's derivative calculation is correct. Use this for calculus problems involving derivatives (e.g., derivative of "x^2 + 3x" is "2x + 3"). Returns whether the derivative is correct and the correct derivative.`,
+  description: `Verify if a student's derivative calculation is correct. **MANDATORY:** Use this for ANY derivative calculation the student provides, even if it seems simple or obvious. This includes:
+- When student says they found the derivative (e.g., "the derivative of x^2 is 2x")
+- When student shows a derivative transformation (e.g., "d/dx(x^3) = 3x^2")
+- When student mentions using derivative rules (power rule, chain rule, etc.)
+- ANY derivative calculation, no matter how simple
+
+**Examples:**
+- Student: "the derivative of x^2 is 2x" → Call with function="x^2", claimed_derivative="2x"
+- Student: "d/dx(3x^2) = 6x" → Call with function="3x^2", claimed_derivative="6x"
+
+**CRITICAL:** You MUST call this tool BEFORE confirming any derivative is correct. NEVER validate a derivative without verification, even if it looks obvious. Returns whether the derivative is correct and the correct derivative.`,
   inputSchema: z.object({
     function: z.string().describe('The original function (e.g., "x^2 + 3x")'),
     claimed_derivative: z.string().describe('The student\'s claimed derivative (e.g., "2x + 3")'),
@@ -137,7 +147,17 @@ export const verifyDerivativeTool = tool({
  * Checks if a student's integral calculation is correct (calculus)
  */
 export const verifyIntegralTool = tool({
-  description: `Verify if a student's integral calculation is correct. Use this for calculus problems involving integrals (e.g., integral of "2x + 3" is "x^2 + 3x + C"). Returns whether the integral is correct and the correct integral.`,
+  description: `Verify if a student's integral calculation is correct. **MANDATORY:** Use this for ANY integral calculation the student provides, even if it seems simple or obvious. This includes:
+- When student says they found the integral (e.g., "the integral of 2x is x^2 + C")
+- When student shows an integral transformation (e.g., "∫ 3x^2 dx = x^3 + C")
+- When student mentions using integration rules (power rule, substitution, etc.)
+- ANY integral calculation, no matter how simple
+
+**Examples:**
+- Student: "the integral of 2x is x^2" → Call with function="2x", claimed_integral="x^2"
+- Student: "∫ 3x^2 dx = x^3 + C" → Call with function="3x^2", claimed_integral="x^3 + C"
+
+**CRITICAL:** You MUST call this tool BEFORE confirming any integral is correct. NEVER validate an integral without verification, even if it looks obvious. Returns whether the integral is correct and the correct integral.`,
   inputSchema: z.object({
     function: z.string().describe('The function to integrate (e.g., "2x + 3")'),
     claimed_integral: z.string().describe('The student\'s claimed integral (e.g., "x^2 + 3x + C")'),
