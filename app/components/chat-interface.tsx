@@ -548,7 +548,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
               isLoading={isLoading || isProcessingImage}
             placeholder="Type your math problem here (e.g., 2x + 5 = 13)..."
               onImageUpload={handleImageUpload}
-              showImageUpload={messages.length === 0}
+              showImageUpload={true}
           />
         </div>
         )}
