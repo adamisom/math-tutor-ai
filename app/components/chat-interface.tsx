@@ -193,10 +193,9 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
 
   // Handle image upload
   const handleImageUpload = async (processedImage: ProcessedImage) => {
-    // Only allow uploads when conversation is empty (starting new problem)
+    // If there's an existing conversation, start a new problem
     if (messages.length > 0) {
-      setError(new Error('Please start a new problem to upload an image.'));
-      return;
+      handleNewProblem();
     }
 
     setIsProcessingImage(true);
