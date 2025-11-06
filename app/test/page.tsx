@@ -760,6 +760,40 @@ export default function TestPage() {
     }
   };
 
+  // Clear all localStorage data (developer mode only)
+  const handleClearStorage = () => {
+    if (typeof window === 'undefined') return;
+    
+    if (confirm('Clear all localStorage data? This will remove conversation history, attempt tracking, and test results.')) {
+      try {
+        // Clear conversation history
+        localStorage.removeItem('math-tutor-conversation');
+        
+        // Clear all attempt tracking keys
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('attempts_')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        // Clear test results
+        localStorage.removeItem(STORAGE_KEY);
+        
+        // Reset state
+        setSelectedProblem(null);
+        setTestResults({});
+        
+        console.log('[Dev] localStorage cleared');
+      } catch (error) {
+        console.error('[Dev] Failed to clear localStorage:', error);
+        alert('Failed to clear localStorage. Check console for details.');
+      }
+    }
+  };
+
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -915,13 +949,24 @@ export default function TestPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold text-gray-900">AI Math Tutor - Testing Interface</h1>
-            <button
-              onClick={resetTest}
-              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset Tests
-            </button>
+            <div className="flex items-center gap-3">
+              {process.env.NODE_ENV === 'development' && (
+                <button
+                  onClick={handleClearStorage}
+                  className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                  title="Clear all localStorage data (developer mode only)"
+                >
+                  Clear Storage
+                </button>
+              )}
+              <button
+                onClick={resetTest}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reset Tests
+              </button>
+            </div>
           </div>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
