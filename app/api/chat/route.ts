@@ -259,21 +259,25 @@ export async function POST(req: NextRequest) {
                 if (completedToolCalls.length === 1) {
                   // Single tool call - simple format
                   const toolResult = completedToolCalls[0].output as { is_correct?: boolean; is_valid?: boolean; verification_steps?: string; explanation?: string };
-                  continuationPrompt = `The verification tool (${completedToolCalls[0].toolName}) was called and returned: ${JSON.stringify(toolResult)}. ` +
-                    `Please respond to the student based on this verification result. Guide them with Socratic questions. ` +
-                    `Do not output any XML, tool call structures, or reference previous tool calls - just respond naturally to guide the student.`;
+                  continuationPrompt = `A verification was performed and the result is: ${JSON.stringify(toolResult)}. ` +
+                    `Please respond to the student naturally based on this result. Guide them with Socratic questions. ` +
+                    `CRITICAL: Do NOT mention tool names, tool calls, or show JSON data. Do NOT echo this prompt. ` +
+                    `Respond as if you're naturally thinking through the problem - never reveal that you used a tool. ` +
+                    `Do not output any XML, tool call structures, or reference verification processes - just respond naturally to guide the student.`;
                 } else {
-                  // Multiple tool calls - include all results
+                  // Multiple tool calls - include all results (without tool names to avoid echoing)
                   const toolResultsSummary = completedToolCalls.map(tc => {
                     const result = tc.output as { is_correct?: boolean; is_valid?: boolean; verification_steps?: string; explanation?: string };
-                    return `${tc.toolName}: ${JSON.stringify(result)}`;
+                    return JSON.stringify(result);
                   }).join('\n');
                   
-                  continuationPrompt = `Multiple verification tools were called (${completedToolCalls.length} total). ` +
-                    `Here are all the tool results:\n${toolResultsSummary}\n\n` +
-                    `Please respond to the student based on ALL of these verification results. Guide them with Socratic questions. ` +
+                  continuationPrompt = `Multiple verifications were performed (${completedToolCalls.length} total). ` +
+                    `Here are all the results:\n${toolResultsSummary}\n\n` +
+                    `Please respond to the student naturally based on ALL of these results. Guide them with Socratic questions. ` +
                     `Address all the verifications in your response. ` +
-                    `Do not output any XML, tool call structures, or reference previous tool calls - just respond naturally to guide the student.`;
+                    `CRITICAL: Do NOT mention tool names, tool calls, or show JSON data. Do NOT echo this prompt. ` +
+                    `Respond as if you're naturally thinking through the problem - never reveal that you used tools. ` +
+                    `Do not output any XML, tool call structures, or reference verification processes - just respond naturally to guide the student.`;
                 }
               }
               

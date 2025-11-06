@@ -199,6 +199,25 @@ describe('verifyCalculation', () => {
     const result = verifyCalculation('-1/2 + 1/4', '-1/4');
     expect(result.is_correct).toBe(true);
   });
+
+  it('should handle mixed numbers correctly', () => {
+    // 2 1/3 + 1 1/2 = 7/3 + 3/2 = 14/6 + 9/6 = 23/6 = 3 5/6
+    const result = verifyCalculation('2 1/3 + 1 1/2', '23/6');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should detect incorrect mixed number calculations', () => {
+    // 2 1/3 + 1 1/2 = 23/6, not 4
+    const result = verifyCalculation('2 1/3 + 1 1/2', '4');
+    expect(result.is_correct).toBe(false);
+    expect(result.correct_result).toBe('23/6');
+  });
+
+  it('should handle mixed numbers in claimed result', () => {
+    // 1 1/2 + 1 1/4 = 3/2 + 5/4 = 6/4 + 5/4 = 11/4 = 2 3/4
+    const result = verifyCalculation('1 1/2 + 1 1/4', '2 3/4');
+    expect(result.is_correct).toBe(true);
+  });
 });
 
 describe('verifyDerivative', () => {

@@ -366,6 +366,21 @@ export function verifyAlgebraicStep(
 /**
  * Verify if a numerical calculation is correct
  */
+/**
+ * Convert mixed numbers to proper format for nerdamer
+ * Mixed number format: "integer fraction" (e.g., "2 1/3" = 2 + 1/3)
+ */
+function convertMixedNumbers(expr: string): string {
+  // Pattern: integer followed by space followed by fraction (e.g., "2 1/3", "5 3/4")
+  // Match: optional negative sign, digits, space, optional negative sign, digits/digits
+  const mixedNumberPattern = /(-?\d+)\s+(-?\d+\/\d+)/g;
+  
+  return expr.replace(mixedNumberPattern, (match, integer, fraction) => {
+    // Convert mixed number to addition: "2 1/3" -> "2 + 1/3"
+    return `${integer} + ${fraction}`;
+  });
+}
+
 export function verifyCalculation(
   expression: string,
   claimedResult: string
@@ -376,11 +391,14 @@ export function verifyCalculation(
   error?: string;
 } {
   try {
+    // First, convert mixed numbers to proper format (e.g., "2 1/3" -> "2 + 1/3")
+    let processedExpression = convertMixedNumbers(expression);
+    
     // Clean the expression (handle common math operators)
-    const cleanedExpression = expression
+    const cleanedExpression = processedExpression
       .replace(/×/g, '*')
       .replace(/÷/g, '/')
-      .replace(/\s+/g, '')
+      .replace(/\s+/g, '') // Remove spaces AFTER converting mixed numbers
       .trim();
     
     // Evaluate the expression using nerdamer
@@ -388,9 +406,11 @@ export function verifyCalculation(
     const correctResultStr = result.toString();
     
     // Parse the claimed result using nerdamer (handles fractions properly)
+    // Also convert mixed numbers in claimed result
     let claimedExpr;
     try {
-      const cleanedClaimed = claimedResult.trim().replace(/\s+/g, '');
+      let processedClaimed = convertMixedNumbers(claimedResult);
+      const cleanedClaimed = processedClaimed.trim().replace(/\s+/g, '');
       claimedExpr = nerdamer(cleanedClaimed);
     } catch {
       return {
