@@ -77,6 +77,27 @@ describe('verifyAlgebraicStep', () => {
     const result = verifyAlgebraicStep('2x + 5 = 13', '2x = 18');
     expect(result.is_valid).toBe(false);
   });
+
+  it('should correctly verify subtracting x^2 from both sides', () => {
+    // Correct transformation: x^2 - 4x = x^2 - 8 → -4x = -8
+    const result = verifyAlgebraicStep(
+      'x^2 - 4x = x^2 - 8',
+      '-4x = -8',
+      'subtract x^2 from both sides'
+    );
+    expect(result.is_valid).toBe(true);
+  });
+
+  it('should detect incorrect sign when subtracting x^2 from both sides', () => {
+    // Incorrect transformation: x^2 - 4x = x^2 - 8 → -4x = 8 (missing negative sign)
+    const result = verifyAlgebraicStep(
+      'x^2 - 4x = x^2 - 8',
+      '-4x = 8',
+      'subtract x^2 from both sides'
+    );
+    expect(result.is_valid).toBe(false);
+    expect(result.corrected_expression).toBeDefined();
+  });
 });
 
 describe('verifyCalculation', () => {

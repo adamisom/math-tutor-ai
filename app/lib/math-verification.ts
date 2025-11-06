@@ -216,8 +216,7 @@ export function verifyEquationSolution(
 export function verifyAlgebraicStep(
   originalExpression: string,
   resultingExpression: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _operationDescribed?: string
+  operationDescribed?: string
 ): {
   is_valid: boolean;
   explanation: string;
@@ -225,10 +224,98 @@ export function verifyAlgebraicStep(
   error?: string;
 } {
   try {
-    // Try to determine if the transformation is valid
-    // This is tricky - we'll simplify both and see if they're equivalent
-    const originalSimplified = nerdamer(originalExpression.trim()).toString();
-    const resultingSimplified = nerdamer(resultingExpression.trim()).toString();
+    const original = originalExpression.trim();
+    const resulting = resultingExpression.trim();
+    
+    // For equations, verify the transformation more carefully
+    if (original.includes('=') && resulting.includes('=')) {
+      const [origLeft, origRight] = original.split('=').map(s => s.trim());
+      const [resLeft, resRight] = resulting.split('=').map(s => s.trim());
+      
+      // Try to verify by applying the described operation
+      // If operation is described, try to compute what the result should be
+      if (operationDescribed) {
+        try {
+          // For operations like "subtract x^2 from both sides", we can verify more accurately
+          // Parse the operation to extract the term being added/subtracted
+          const subtractMatch = operationDescribed.match(/subtract\s+(.+?)\s+from\s+both\s+sides/i);
+          const addMatch = operationDescribed.match(/add\s+(.+?)\s+to\s+both\s+sides/i);
+          const multiplyMatch = operationDescribed.match(/multiply\s+both\s+sides\s+by\s+(.+)/i);
+          const divideMatch = operationDescribed.match(/divide\s+both\s+sides\s+by\s+(.+)/i);
+          
+          let expectedLeft: nerdamer.Expression;
+          let expectedRight: nerdamer.Expression;
+          
+          if (subtractMatch) {
+            const termToSubtract = subtractMatch[1].trim();
+            expectedLeft = nerdamer(`(${origLeft}) - (${termToSubtract})`);
+            expectedRight = nerdamer(`(${origRight}) - (${termToSubtract})`);
+          } else if (addMatch) {
+            const termToAdd = addMatch[1].trim();
+            expectedLeft = nerdamer(`(${origLeft}) + (${termToAdd})`);
+            expectedRight = nerdamer(`(${origRight}) + (${termToAdd})`);
+          } else if (multiplyMatch) {
+            const factor = multiplyMatch[1].trim();
+            expectedLeft = nerdamer(`(${origLeft}) * (${factor})`);
+            expectedRight = nerdamer(`(${origRight}) * (${factor})`);
+          } else if (divideMatch) {
+            const divisor = divideMatch[1].trim();
+            expectedLeft = nerdamer(`(${origLeft}) / (${divisor})`);
+            expectedRight = nerdamer(`(${origRight}) / (${divisor})`);
+          } else {
+            // Operation not recognized, fall through to equivalence check
+            throw new Error('Operation not recognized');
+          }
+          
+          // Compare expected result with actual result
+          const expectedLeftStr = expectedLeft.toString();
+          const expectedRightStr = expectedRight.toString();
+          
+          // Check if left sides match
+          const leftMatch = areExpressionsEquivalent(expectedLeftStr, resLeft);
+          const rightMatch = areExpressionsEquivalent(expectedRightStr, resRight);
+          
+          if (leftMatch && rightMatch) {
+            return {
+              is_valid: true,
+              explanation: `The algebraic step from "${originalExpression}" to "${resultingExpression}" is mathematically valid.`,
+            };
+          } else {
+            // Provide the correct result
+            return {
+              is_valid: false,
+              explanation: `The algebraic step from "${originalExpression}" to "${resultingExpression}" is not mathematically valid. When ${operationDescribed}, the correct result should be "${expectedLeftStr} = ${expectedRightStr}".`,
+              corrected_expression: `${expectedLeftStr} = ${expectedRightStr}`,
+            };
+          }
+        } catch {
+          // Operation parsing failed, fall through to equivalence check
+        }
+      }
+      
+      // Fallback: Check if both sides are equivalent transformations
+      // For equations, check if left side difference equals right side difference
+      try {
+        const origLeftDiff = nerdamer(`(${origLeft}) - (${resLeft})`);
+        const origRightDiff = nerdamer(`(${origRight}) - (${resRight})`);
+        
+        // If the differences are equivalent, the transformation is valid
+        const isEquivalent = areExpressionsEquivalent(origLeftDiff.toString(), origRightDiff.toString());
+        
+        if (isEquivalent) {
+          return {
+            is_valid: true,
+            explanation: `The algebraic step from "${originalExpression}" to "${resultingExpression}" is mathematically valid.`,
+          };
+        }
+      } catch {
+        // Difference calculation failed, try simpler equivalence
+      }
+    }
+    
+    // General equivalence check for non-equations or fallback
+    const originalSimplified = nerdamer(original).toString();
+    const resultingSimplified = nerdamer(resulting).toString();
     
     // Check if they're mathematically equivalent using nerdamer
     try {
@@ -245,8 +332,8 @@ export function verifyAlgebraicStep(
       let correctedExpression: string | undefined;
       try {
         // For equations, try solving or simplifying
-        if (originalExpression.includes('=')) {
-          const [left, right] = originalExpression.split('=');
+        if (original.includes('=')) {
+          const [left, right] = original.split('=');
           const simplified = nerdamer(`(${left}) - (${right})`).toString();
           correctedExpression = `${simplified} = 0`;
         }
