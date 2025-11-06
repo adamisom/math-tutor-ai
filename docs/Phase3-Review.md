@@ -166,12 +166,331 @@ export const ERROR_MESSAGES = {
 
 ---
 
-## 🧪 High-Value Unit Test Opportunities
+## 🧪 High-Value Unit Test Opportunities (UPDATED POST-REFACTORING)
 
-### 1. **Image Processing Library** (CRITICAL - High Value)
+### ⚡ **NEW: Testability Significantly Improved After Refactoring**
+
+The refactoring has made several critical pieces **much more testable**:
+- ✅ **JSON Parser** - Now a pure function (was embedded in route)
+- ✅ **Extraction Handlers** - Now separate testable functions (was large if/else chain)
+- ✅ **Image Processing** - Already testable, optimization doesn't change this
+
+---
+
+### 1. **JSON Parsing Utility** (CRITICAL - Highest Priority) ⬆️ UPGRADED
+**Location:** `app/lib/json-parser.ts` ✅ **NOW EXISTS**
+
+**Why:** 
+- **Pure function** - No side effects, easy to test
+- **Complex parsing logic** with many edge cases
+- **Critical for reliability** - Handles AI response variations
+- **Was embedded in route** - Now extracted and highly testable
+
+**Tests to Write:**
+```typescript
+// tests/unit/json-parser.test.ts
+
+import { describe, it, expect } from 'vitest';
+import { parseExtractionJSON } from '../../app/lib/json-parser';
+
+describe('parseExtractionJSON', () => {
+  it('should parse clean JSON', () => {
+    const input = '{"type":"SINGLE_PROBLEM","confidence":"high","problems":["2x + 5 = 13"]}';
+    const result = parseExtractionJSON(input);
+    expect(result.type).toBe('SINGLE_PROBLEM');
+    expect(result.confidence).toBe('high');
+    expect(result.problems).toEqual(['2x + 5 = 13']);
+  });
+
+  it('should extract JSON from markdown code blocks', () => {
+    const input = '```json\n{"type":"TWO_PROBLEMS","confidence":"high","problems":["Problem 1","Problem 2"]}\n```';
+    const result = parseExtractionJSON(input);
+    expect(result.type).toBe('TWO_PROBLEMS');
+    expect(result.problems).toHaveLength(2);
+  });
+
+  it('should handle JSON with extra text before/after', () => {
+    const input = 'Here is the result: {"type":"SINGLE_PROBLEM","confidence":"medium","problems":["x = 5"]} That was the problem.';
+    const result = parseExtractionJSON(input);
+    expect(result.type).toBe('SINGLE_PROBLEM');
+  });
+
+  it('should validate required fields (type, confidence)', () => {
+    const input = '{"problems":["test"]}'; // Missing type and confidence
+    const result = parseExtractionJSON(input);
+    expect(result.type).toBe('UNCLEAR_IMAGE');
+    expect(result.confidence).toBe('low');
+  });
+
+  it('should default problems array if missing', () => {
+    const input = '{"type":"SOLUTION_DETECTED","confidence":"high"}';
+    const result = parseExtractionJSON(input);
+    expect(result.problems).toEqual([]);
+  });
+
+  it('should handle malformed JSON gracefully', () => {
+    const input = 'This is not JSON at all!';
+    const result = parseExtractionJSON(input);
+    expect(result.type).toBe('UNCLEAR_IMAGE');
+    expect(result.confidence).toBe('low');
+    expect(result.extracted_text).toBeDefined();
+  });
+
+  it('should return UNCLEAR_IMAGE for parse failures', () => {
+    const input = '{invalid json}';
+    const result = parseExtractionJSON(input);
+    expect(result.type).toBe('UNCLEAR_IMAGE');
+    expect(result.confidence).toBe('low');
+  });
+
+  it('should preserve extracted_text in fallback (first 500 chars)', () => {
+    const longText = 'A'.repeat(1000);
+    const result = parseExtractionJSON(longText);
+    expect(result.extracted_text).toBe('A'.repeat(500));
+  });
+
+  it('should handle all extraction types correctly', () => {
+    const types = ['SINGLE_PROBLEM', 'TWO_PROBLEMS', 'MULTIPLE_PROBLEMS', 'SOLUTION_DETECTED', 'UNCLEAR_IMAGE'];
+    types.forEach(type => {
+      const input = `{"type":"${type}","confidence":"high","problems":[]}`;
+      const result = parseExtractionJSON(input);
+      expect(result.type).toBe(type);
+    });
+  });
+
+  it('should handle markdown with language identifier', () => {
+    const input = '```json\n{"type":"SINGLE_PROBLEM","confidence":"high","problems":["test"]}\n```';
+    const result = parseExtractionJSON(input);
+    expect(result.type).toBe('SINGLE_PROBLEM');
+  });
+
+  it('should handle nested markdown code blocks', () => {
+    const input = 'Some text ```json\n{"type":"TWO_PROBLEMS","confidence":"medium","problems":["p1","p2"]}\n``` more text';
+    const result = parseExtractionJSON(input);
+    expect(result.type).toBe('TWO_PROBLEMS');
+  });
+});
+```
+
+**Test Coverage Target:** 95%+ (Pure function, easy to achieve)
+
+**Priority:** ⭐⭐⭐ **CRITICAL** - This is now the easiest and highest-value test to write
+
+---
+
+### 2. **Extraction Handlers** (HIGH - New Opportunity) ⬆️ NEW
+**Location:** `app/lib/extraction-handlers.ts` ✅ **NOW EXISTS**
+
+**Why:**
+- **Separate functions** - Each handler is independently testable
+- **Pure logic** - Can test with mock contexts
+- **Critical business logic** - Handles all extraction result types
+- **Was embedded in component** - Now extracted and testable
+
+**Tests to Write:**
+```typescript
+// tests/unit/extraction-handlers.test.ts
+
+import { describe, it, expect, vi } from 'vitest';
+import {
+  handleSingleProblem,
+  handleTwoProblems,
+  handleMultipleProblems,
+  handleSolutionDetected,
+  handleUnclearImage,
+  ExtractionHandlerContext,
+} from '../../app/lib/extraction-handlers';
+import { ImageExtractionResult } from '../../app/api/chat/image-extract/route';
+
+describe('handleSingleProblem', () => {
+  it('should set user message and submit problem', async () => {
+    const mockContext: ExtractionHandlerContext = {
+      setMessages: vi.fn(),
+      setPendingProblems: vi.fn(),
+      setConversationState: vi.fn(),
+      setExtractionText: vi.fn(),
+      submitProblem: vi.fn().mockResolvedValue(undefined),
+    };
+    
+    const result: ImageExtractionResult = {
+      type: 'SINGLE_PROBLEM',
+      confidence: 'high',
+      problems: ['2x + 5 = 13'],
+    };
+    
+    await handleSingleProblem(result, mockContext);
+    
+    expect(mockContext.setMessages).toHaveBeenCalledWith([
+      expect.objectContaining({
+        role: 'user',
+        content: '2x + 5 = 13',
+      }),
+    ]);
+    expect(mockContext.submitProblem).toHaveBeenCalledWith('2x + 5 = 13');
+  });
+
+  it('should not submit if problem text is empty', async () => {
+    const mockContext: ExtractionHandlerContext = {
+      setMessages: vi.fn(),
+      setPendingProblems: vi.fn(),
+      setConversationState: vi.fn(),
+      setExtractionText: vi.fn(),
+      submitProblem: vi.fn(),
+    };
+    
+    const result: ImageExtractionResult = {
+      type: 'SINGLE_PROBLEM',
+      confidence: 'high',
+      problems: [''],
+    };
+    
+    await handleSingleProblem(result, mockContext);
+    
+    expect(mockContext.submitProblem).not.toHaveBeenCalled();
+  });
+});
+
+describe('handleTwoProblems', () => {
+  it('should set pending problems and change state to PROBLEM_SELECTION', () => {
+    const mockContext: ExtractionHandlerContext = {
+      setMessages: vi.fn(),
+      setPendingProblems: vi.fn(),
+      setConversationState: vi.fn(),
+      setExtractionText: vi.fn(),
+      submitProblem: vi.fn(),
+    };
+    
+    const result: ImageExtractionResult = {
+      type: 'TWO_PROBLEMS',
+      confidence: 'high',
+      problems: ['Problem 1', 'Problem 2'],
+    };
+    
+    handleTwoProblems(result, mockContext);
+    
+    expect(mockContext.setPendingProblems).toHaveBeenCalledWith([
+      { id: 'problem-0', problem: 'Problem 1' },
+      { id: 'problem-1', problem: 'Problem 2' },
+    ]);
+    expect(mockContext.setConversationState).toHaveBeenCalledWith('PROBLEM_SELECTION');
+  });
+});
+
+describe('handleMultipleProblems', () => {
+  it('should set assistant message about multiple problems', () => {
+    const mockContext: ExtractionHandlerContext = {
+      setMessages: vi.fn(),
+      setPendingProblems: vi.fn(),
+      setConversationState: vi.fn(),
+      setExtractionText: vi.fn(),
+      submitProblem: vi.fn(),
+    };
+    
+    const result: ImageExtractionResult = {
+      type: 'MULTIPLE_PROBLEMS',
+      confidence: 'high',
+      problems: ['p1', 'p2', 'p3'],
+    };
+    
+    handleMultipleProblems(result, mockContext);
+    
+    expect(mockContext.setMessages).toHaveBeenCalledWith([
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('several math problems'),
+      }),
+    ]);
+  });
+});
+
+describe('handleSolutionDetected', () => {
+  it('should set assistant message about solution detected', () => {
+    const mockContext: ExtractionHandlerContext = {
+      setMessages: vi.fn(),
+      setPendingProblems: vi.fn(),
+      setConversationState: vi.fn(),
+      setExtractionText: vi.fn(),
+      submitProblem: vi.fn(),
+    };
+    
+    const result: ImageExtractionResult = {
+      type: 'SOLUTION_DETECTED',
+      confidence: 'high',
+      problems: [],
+    };
+    
+    handleSolutionDetected(result, mockContext);
+    
+    expect(mockContext.setMessages).toHaveBeenCalledWith([
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('solution or completed homework'),
+      }),
+    ]);
+  });
+});
+
+describe('handleUnclearImage', () => {
+  it('should set extraction text and state to EXTRACTION_CONFIRMATION when low confidence', () => {
+    const mockContext: ExtractionHandlerContext = {
+      setMessages: vi.fn(),
+      setPendingProblems: vi.fn(),
+      setConversationState: vi.fn(),
+      setExtractionText: vi.fn(),
+      submitProblem: vi.fn(),
+    };
+    
+    const result: ImageExtractionResult = {
+      type: 'UNCLEAR_IMAGE',
+      confidence: 'low',
+      problems: [],
+      extracted_text: 'Some extracted text',
+    };
+    
+    handleUnclearImage(result, mockContext);
+    
+    expect(mockContext.setExtractionText).toHaveBeenCalledWith('Some extracted text');
+    expect(mockContext.setConversationState).toHaveBeenCalledWith('EXTRACTION_CONFIRMATION');
+  });
+
+  it('should set assistant message when no extracted text or high confidence', () => {
+    const mockContext: ExtractionHandlerContext = {
+      setMessages: vi.fn(),
+      setPendingProblems: vi.fn(),
+      setConversationState: vi.fn(),
+      setExtractionText: vi.fn(),
+      submitProblem: vi.fn(),
+    };
+    
+    const result: ImageExtractionResult = {
+      type: 'UNCLEAR_IMAGE',
+      confidence: 'high',
+      problems: [],
+    };
+    
+    handleUnclearImage(result, mockContext);
+    
+    expect(mockContext.setMessages).toHaveBeenCalledWith([
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('having trouble reading'),
+      }),
+    ]);
+    expect(mockContext.setExtractionText).not.toHaveBeenCalled();
+  });
+});
+```
+
+**Test Coverage Target:** 90%+ (Pure functions with mocks, very achievable)
+
+**Priority:** ⭐⭐ **HIGH** - New opportunity created by refactoring
+
+---
+
+### 3. **Image Processing Library** (CRITICAL - High Value)
 **Location:** `app/lib/image-processing.ts`
 
-**Why:** Pure functions, critical business logic, many edge cases.
+**Why:** Pure functions, critical business logic, many edge cases. **Unchanged by refactoring.**
 
 **Tests to Write:**
 ```typescript
@@ -205,62 +524,38 @@ describe('processImage', () => {
   it('should throw on validation failure');
   it('should return correct dimensions');
   it('should return correct size information');
+  it('should optimize dimension calls (not fetch twice if not compressed)');
 });
 ```
 
 **Test Coverage Target:** 90%+
 
----
-
-### 2. **JSON Parsing Utility** (HIGH - After Refactoring)
-**Location:** `app/lib/json-parser.ts` (to be created)
-
-**Why:** Complex parsing logic with many edge cases. Critical for reliability.
-
-**Tests to Write:**
-```typescript
-// tests/unit/json-parser.test.ts
-
-describe('parseExtractionJSON', () => {
-  it('should parse clean JSON');
-  it('should extract JSON from markdown code blocks');
-  it('should handle JSON with extra text');
-  it('should validate required fields (type, confidence)');
-  it('should default problems array if missing');
-  it('should handle malformed JSON gracefully');
-  it('should return UNCLEAR_IMAGE for parse failures');
-  it('should preserve extracted_text in fallback');
-});
-```
-
-**Test Coverage Target:** 95%+
+**Priority:** ⭐⭐⭐ **CRITICAL** - Unchanged priority
 
 ---
 
-### 3. **Extraction Result Validation** (MEDIUM)
+### 4. **Extraction Result Validation** (MEDIUM - Lower Priority Now)
 **Location:** `app/api/chat/image-extract/route.ts`
 
-**Why:** Ensure API returns valid data structures.
+**Why:** JSON parser now handles validation. Route is simpler.
+
+**Note:** Most validation logic is now in `json-parser.ts`, so this is lower priority.
 
 **Tests to Write:**
 ```typescript
-// tests/unit/extraction-validation.test.ts
+// tests/unit/image-extract-route.test.ts (if needed)
 
-describe('validateExtractionResult', () => {
-  it('should validate SINGLE_PROBLEM structure');
-  it('should validate TWO_PROBLEMS structure');
-  it('should validate MULTIPLE_PROBLEMS structure');
-  it('should validate SOLUTION_DETECTED structure');
-  it('should validate UNCLEAR_IMAGE structure');
-  it('should reject invalid type values');
-  it('should reject invalid confidence values');
-  it('should ensure problems array exists');
-});
+// Integration tests for the route endpoint
+// Most logic is now tested in json-parser.test.ts
 ```
+
+**Test Coverage Target:** 70%+ (Integration tests)
+
+**Priority:** ⭐ **MEDIUM** - Lower priority after refactoring
 
 ---
 
-### 4. **Image Upload Component Logic** (LOW - Integration Tests)
+### 5. **Image Upload Component Logic** (LOW - Integration Tests)
 **Location:** `app/components/image-upload.tsx`
 
 **Why:** User-facing, but mostly UI. Focus on integration tests.
@@ -279,71 +574,116 @@ describe('ImageUpload Component', () => {
 });
 ```
 
----
-
-## 📊 Priority Matrix
-
-| Refactoring | Priority | Effort | Impact | Test Coverage |
-|------------|----------|--------|--------|--------------|
-| Extract JSON Parser | High | Low | High | 95%+ |
-| Extract Problem Submission | Medium | Medium | Medium | 80%+ |
-| Optimize Image Processing | Low | Low | Low | 90%+ |
-| Extract Handlers | Medium | Medium | Medium | 85%+ |
-| Consolidate Errors | Low | Low | Low | N/A |
-
-| Tests | Priority | Effort | Value |
-|-------|----------|--------|-------|
-| Image Processing | Critical | Medium | Very High |
-| JSON Parser | High | Low | High |
-| Extraction Validation | Medium | Low | Medium |
-| Image Upload Integration | Low | High | Low |
+**Priority:** ⭐ **LOW** - Unchanged
 
 ---
 
-## 🎯 Recommended Action Plan
+## 📊 Updated Priority Matrix (POST-REFACTORING)
 
-### Phase 1: Critical Tests (Do First)
-1. ✅ Write comprehensive tests for `image-processing.ts`
-2. ✅ Extract and test JSON parsing logic
+### Refactoring Status: ✅ **ALL COMPLETE**
 
-### Phase 2: Refactoring (Do Second)
+| Refactoring | Status | Test Coverage Impact |
+|------------|--------|---------------------|
+| Extract JSON Parser | ✅ Done | **95%+ achievable** (was 0%) |
+| Extract Problem Submission | ✅ Done | 80%+ (component tests) |
+| Optimize Image Processing | ✅ Done | 90%+ (unchanged) |
+| Extract Handlers | ✅ Done | **90%+ achievable** (was 0%) |
+
+### Updated Test Priority Matrix
+
+| Tests | Priority | Effort | Value | Testability After Refactor |
+|-------|----------|--------|-------|---------------------------|
+| **JSON Parser** | ⭐⭐⭐ **CRITICAL** | **Low** | **Very High** | ✅ **Pure function - EASIEST** |
+| **Extraction Handlers** | ⭐⭐ **HIGH** | **Low** | **High** | ✅ **Separate functions - EASY** |
+| Image Processing | ⭐⭐⭐ **CRITICAL** | Medium | Very High | ✅ Unchanged (already good) |
+| Extraction Validation | ⭐ **MEDIUM** | Low | Medium | ⬇️ Lower (moved to parser) |
+| Image Upload Integration | ⭐ **LOW** | High | Low | ✅ Unchanged |
+
+---
+
+## 🎯 Updated Recommended Action Plan (POST-REFACTORING)
+
+### ✅ Phase 1: Refactoring (COMPLETE)
 1. ✅ Extract JSON parser utility
 2. ✅ Extract problem submission helper
 3. ✅ Optimize image processing
+4. ✅ Extract extraction handlers
 
-### Phase 3: Additional Tests (Do Third)
-1. ✅ Test extraction result validation
-2. ✅ Integration tests for image upload
+### Phase 2: Critical Tests (Do Next - EASIEST FIRST)
+1. **⭐ START HERE:** Write tests for `json-parser.ts` (Pure function, easiest)
+   - Estimated: 30 minutes
+   - Coverage target: 95%+
+   - **Highest ROI** - was impossible to test before, now trivial
+
+2. **⭐ THEN:** Write tests for `extraction-handlers.ts` (Separate functions, easy)
+   - Estimated: 45 minutes
+   - Coverage target: 90%+
+   - **High ROI** - was embedded in component, now testable
+
+3. Write comprehensive tests for `image-processing.ts` (Critical, but more complex)
+   - Estimated: 60 minutes
+   - Coverage target: 90%+
+   - Requires image mocking
+
+### Phase 3: Additional Tests (Do Last)
+1. Integration tests for image upload component
+2. Route integration tests (if needed)
 
 ---
 
-## 💡 Additional Observations
+## 💡 Updated Observations (POST-REFACTORING)
 
 ### Code Quality Issues:
-- ✅ No major code smells
-- ✅ Good separation of concerns
-- ✅ Type safety is good
-- ⚠️ Some repetitive patterns (handlers)
-- ⚠️ Synthetic events are a code smell
+- ✅ **No major code smells** - All addressed by refactoring
+- ✅ **Excellent separation of concerns** - Handlers, parser, processing all separated
+- ✅ **Type safety is good** - All types properly defined
+- ✅ **No repetitive patterns** - Handler map pattern eliminates duplication
+- ✅ **No synthetic events** - All eliminated by `submitProblem` helper
 
 ### Performance Considerations:
-- ⚠️ Image dimensions loaded twice (minor)
-- ✅ Compression is efficient
-- ✅ Base64 conversion is async
+- ✅ **Image dimensions optimized** - No longer loaded twice unnecessarily
+- ✅ **Compression is efficient** - Unchanged
+- ✅ **Base64 conversion is async** - Unchanged
 
 ### Maintainability:
-- ✅ Well-structured
-- ✅ Good error handling
-- ⚠️ Some complex conditionals could be simplified
-- ✅ TypeScript types are comprehensive
+- ✅ **Excellent structure** - Modular, testable functions
+- ✅ **Good error handling** - Centralized in parser
+- ✅ **Simple conditionals** - Handler map replaces if/else chain
+- ✅ **TypeScript types are comprehensive** - All interfaces well-defined
+
+### Testability Improvements:
+- ✅ **JSON Parser** - Went from 0% testable (embedded) to 100% testable (pure function)
+- ✅ **Extraction Handlers** - Went from 0% testable (component) to 100% testable (separate functions)
+- ✅ **Image Processing** - Already testable, optimization doesn't change this
+- ✅ **Overall** - **Significantly improved testability** across the board
 
 ---
 
-## 🚀 Quick Wins
+## 🚀 Quick Wins (UPDATED)
 
-1. **Extract JSON Parser** - 15 minutes, high value
-2. **Add Image Processing Tests** - 30 minutes, critical
-3. **Extract Problem Submission** - 20 minutes, cleaner code
+### ✅ Refactoring Complete - All Quick Wins Achieved!
 
-These three changes would significantly improve code quality and testability with minimal effort.
+1. ✅ **Extract JSON Parser** - Done! Now highly testable
+2. ✅ **Extract Problem Submission** - Done! No more synthetic events
+3. ✅ **Extract Handlers** - Done! Handler map pattern implemented
+4. ✅ **Optimize Image Processing** - Done! Dimension caching added
+
+### 🎯 New Quick Wins: Unit Tests
+
+1. **Test JSON Parser** - ⭐ **START HERE**
+   - **30 minutes** - Pure function, easiest to test
+   - **95%+ coverage** achievable
+   - **Highest ROI** - Was impossible before, now trivial
+
+2. **Test Extraction Handlers** - ⭐ **NEXT**
+   - **45 minutes** - Separate functions, easy to mock
+   - **90%+ coverage** achievable
+   - **High ROI** - Was embedded, now testable
+
+3. **Test Image Processing** - ⭐ **THEN**
+   - **60 minutes** - More complex (requires image mocking)
+   - **90%+ coverage** achievable
+   - **Critical** - Business logic validation
+
+**Total Estimated Time:** ~2.5 hours for comprehensive test coverage of all Phase 3 logic
 
