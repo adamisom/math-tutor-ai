@@ -124,14 +124,6 @@ function MessageContent({ content }: MessageContentProps) {
   // Parse tool call blocks and regular content
   const parts = parseToolCallBlocks(content);
   
-  // Debug logging in development
-  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-    if (content.includes('[TOOL_CALL_START]') || content.includes('[TOOL_RESULT_START]')) {
-      console.log('[MessageContent] Parsed parts:', parts);
-      console.log('[MessageContent] Original content length:', content.length);
-    }
-  }
-  
   return (
     <div className="space-y-2">
       {parts.map((part, index) => {

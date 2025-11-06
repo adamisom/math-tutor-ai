@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 import { getSocraticPrompt, extractProblemFromMessages } from '../../lib/prompts';
 import { mathVerificationTools } from '../../lib/math-tools';
 import { manageAttemptTracking } from '../../lib/attempt-tracking';
-import { ToolCallInjector } from '../../lib/tool-call-injection';
+import { ToolCallInjector, stripToolCallMarkers } from '../../lib/tool-call-injection';
 
 // Shared store for tool calls in this request (for testing/logging)
 // Note: Currently unused, but kept for potential future tool call logging/injection
@@ -59,10 +59,17 @@ export async function POST(req: NextRequest) {
         const contentStr = typeof msg.content === 'string' ? msg.content : String(msg.content || '');
         return contentStr.trim().length > 0;
       })
-      .map((msg: MessageInput) => ({
-        role: msg.role as 'user' | 'assistant' | 'system',
-        content: typeof msg.content === 'string' ? msg.content.trim() : String(msg.content || '').trim(),
-      }));
+      .map((msg: MessageInput) => {
+        const content = typeof msg.content === 'string' ? msg.content.trim() : String(msg.content || '').trim();
+        // Strip tool call markers from assistant messages (dev mode injection)
+        // This prevents markers from being included in conversation history sent to Claude
+        const cleanedContent = msg.role === 'assistant' ? stripToolCallMarkers(content) : content;
+        return {
+          role: msg.role as 'user' | 'assistant' | 'system',
+          content: cleanedContent,
+        };
+      })
+      .filter(msg => msg.content.length > 0); // Filter out messages that became empty after stripping
 
     // Ensure we have at least one valid message
     if (validMessages.length === 0) {

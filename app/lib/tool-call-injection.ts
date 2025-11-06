@@ -13,6 +13,54 @@ export const TOOL_CALL_MARKERS = {
   RESULT_END: '[TOOL_RESULT_END]',
 } as const;
 
+/**
+ * Strip tool call markers from message content
+ * Prevents markers from being included in conversation history sent to Claude
+ */
+export function stripToolCallMarkers(content: string): string {
+  let cleaned = content;
+  
+  // Remove tool call blocks
+  const toolCallStart = TOOL_CALL_MARKERS.START;
+  const toolCallEnd = TOOL_CALL_MARKERS.END;
+  while (cleaned.includes(toolCallStart)) {
+    const startIdx = cleaned.indexOf(toolCallStart);
+    const afterStart = cleaned.substring(startIdx + toolCallStart.length);
+    const endIdx = afterStart.indexOf(toolCallEnd);
+    
+    if (endIdx !== -1) {
+      // Remove the entire block including markers
+      const before = cleaned.substring(0, startIdx);
+      const after = afterStart.substring(endIdx + toolCallEnd.length);
+      cleaned = before + after;
+    } else {
+      // End marker not found, just remove start marker
+      cleaned = cleaned.substring(0, startIdx) + cleaned.substring(startIdx + toolCallStart.length);
+    }
+  }
+  
+  // Remove tool result blocks
+  const toolResultStart = TOOL_CALL_MARKERS.RESULT_START;
+  const toolResultEnd = TOOL_CALL_MARKERS.RESULT_END;
+  while (cleaned.includes(toolResultStart)) {
+    const startIdx = cleaned.indexOf(toolResultStart);
+    const afterStart = cleaned.substring(startIdx + toolResultStart.length);
+    const endIdx = afterStart.indexOf(toolResultEnd);
+    
+    if (endIdx !== -1) {
+      // Remove the entire block including markers
+      const before = cleaned.substring(0, startIdx);
+      const after = afterStart.substring(endIdx + toolResultEnd.length);
+      cleaned = before + after;
+    } else {
+      // End marker not found, just remove start marker
+      cleaned = cleaned.substring(0, startIdx) + cleaned.substring(startIdx + toolResultStart.length);
+    }
+  }
+  
+  return cleaned.trim();
+}
+
 export interface ToolCall {
   toolName: string;
   args: Record<string, unknown>;
@@ -139,10 +187,6 @@ export class ToolCallInjector {
 export function parseToolCallBlocks(content: string): ContentPart[] {
   const parts: ContentPart[] = [];
   
-  // Track which blocks we've already parsed to avoid duplicates
-  // Use a simple hash of the content to identify duplicates
-  const seenBlocks = new Set<string>();
-  
   // Simple string-based parsing (no regex needed)
   let remaining = content;
   
@@ -203,18 +247,6 @@ export function parseToolCallBlocks(content: string): ContentPart[] {
     // Extract content between markers
     const blockContent = afterStart.substring(0, endIndex).trim();
     const afterEnd = afterStart.substring(endIndex + endMarker.length);
-    
-    // Check for duplicates by creating a hash of the block content
-    const blockHash = `${nextMatch.type}-${blockContent.substring(0, 100)}`;
-    if (seenBlocks.has(blockHash)) {
-      // Skip duplicate block
-      if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-        console.log('[parseToolCallBlocks] Skipping duplicate block:', blockHash.substring(0, 50));
-      }
-      remaining = afterEnd;
-      continue;
-    }
-    seenBlocks.add(blockHash);
     
     // Parse the block content (first line is header, rest is body)
     const lines = blockContent.split('\n');
