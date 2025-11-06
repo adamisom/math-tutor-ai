@@ -1,7 +1,20 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { streamText } from 'ai';
 import { NextRequest } from 'next/server';
-import { getSocraticPrompt, validateSocraticResponse, extractProblemFromMessages, getStricterSocraticPrompt } from '../../lib/prompts';
+import { getSocraticPrompt, extractProblemFromMessages } from '../../lib/prompts';
+import { mathVerificationTools } from '../../lib/math-tools';
+import { manageAttemptTracking } from '../../lib/attempt-tracking';
+import { ToolCallInjector, stripToolCallMarkers, filterToolCallXml } from '../../lib/tool-call-injection';
+
+// Shared store for tool calls in this request (for testing/logging)
+// Note: Currently unused, but kept for potential future tool call logging/injection
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+interface ToolCallInfo {
+  toolName: string;
+  args: Record<string, unknown>;
+  result: Record<string, unknown>;
+  timestamp: number;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,8 +31,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Parse request body
-    const { messages } = await req.json();
+    // Parse request body - may include attempt tracking metadata
+    const { messages, attemptMetadata } = await req.json();
+    // attemptMetadata: { previousProblem?: string, problemSignature?: string }
     
     // Validate messages format
     if (!Array.isArray(messages)) {
@@ -32,38 +46,337 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Extract current problem context
-    const currentProblem = extractProblemFromMessages(messages);
-    const conversationLength = messages.length;
+    // Filter and validate messages - remove any with empty content
+    // Also ensure messages are in the format expected by AI SDK
+    interface MessageInput {
+      role: string;
+      content: string | number;
+    }
+    const validMessages = messages
+      .filter((msg: MessageInput) => {
+        if (!msg.role || (!msg.content && msg.content !== 0)) return false;
+        // Ensure content is a non-empty string
+        const contentStr = typeof msg.content === 'string' ? msg.content : String(msg.content || '');
+        return contentStr.trim().length > 0;
+      })
+      .map((msg: MessageInput) => {
+        const content = typeof msg.content === 'string' ? msg.content.trim() : String(msg.content || '').trim();
+        // Strip tool call markers from assistant messages (dev mode injection)
+        // This prevents markers from being included in conversation history sent to Claude
+        const cleanedContent = msg.role === 'assistant' ? stripToolCallMarkers(content) : content;
+        return {
+        role: msg.role as 'user' | 'assistant' | 'system',
+          content: cleanedContent,
+        };
+      })
+      .filter(msg => msg.content.length > 0); // Filter out messages that became empty after stripping
+
+    // Ensure we have at least one valid message
+    if (validMessages.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No valid messages provided. Please enter a math problem.' }), 
+        { 
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Debug logging (remove in production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Validated messages:', JSON.stringify(validMessages, null, 2));
+    }
+
+    // Extract current problem context and manage attempt tracking
+    const currentProblem = extractProblemFromMessages(validMessages);
+    const conversationLength = validMessages.length;
     const isStuck = conversationLength > 4; // Simple stuck detection
     
-    // Generate enhanced Socratic prompt with context
+    // Manage attempt tracking (server-side approximation)
+    // Note: Full tracking requires client-side localStorage, but we can approximate here
+    const previousProblem = attemptMetadata?.previousProblem;
+    const attemptTracking = manageAttemptTracking(validMessages, previousProblem);
+    const attemptCount = attemptMetadata?.attemptCount ?? attemptTracking.attemptCount;
+    
+    // Generate enhanced Socratic prompt with context including attempt count
     const systemPrompt = getSocraticPrompt({
-      problemText: currentProblem,
+      problemText: currentProblem || attemptTracking.currentProblem || undefined,
       conversationLength,
       isStuck,
-      studentLevel: 'auto' // Will be enhanced later
+      studentLevel: 'auto', // Will be enhanced later
+      attemptCount: attemptCount,
+      isNewProblem: attemptTracking.isNewProblem,
+      previousProblem: previousProblem,
     });
 
-    // Generate response using Anthropic
-    const result = await streamText({
-      model: anthropic('claude-3-5-sonnet-20241022'),
-      system: systemPrompt,
-      messages: messages,
-    });
+    // Generate response using Anthropic with tool calling
+    // Using Claude Sonnet 4.5 (latest available model)
+    let result;
+    try {
+      result = await streamText({
+        model: anthropic('claude-sonnet-4-5-20250929'),
+        system: systemPrompt,
+        messages: validMessages,
+        tools: mathVerificationTools,
+        toolChoice: 'auto', // Claude decides when to call tools
+        // Note: maxSteps parameter is not available in this AI SDK version
+        // Tool calling continuation issue will be addressed through other approaches
+      });
+      
+      // Log tool usage in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Tool calling enabled with', Object.keys(mathVerificationTools).length, 'tools');
+      }
+    } catch (toolError) {
+      // If tool calling fails, fall back to Claude without tools
+      console.warn('Tool calling failed, falling back to Claude-only mode:', toolError);
+      result = await streamText({
+        model: anthropic('claude-sonnet-4-5-20250929'),
+        system: systemPrompt + '\n\nNote: Mathematical verification tools are temporarily unavailable. Guide the student through questions and encourage them to verify their own work.',
+        messages: validMessages,
+      });
+    }
 
-    // For now, return streaming response directly
-    // TODO: Add response validation in Phase 3 when we implement the testing framework
-    // The validation would need to work with streaming responses which is more complex
-    return result.toTextStreamResponse();
+    // Return streaming response with Approach 6: Explicit Continuation Message
+    // Monitor stream to detect if tool was called but no text follows
+    try {
+      // Create a wrapper stream that monitors for tool calls and text
+      let toolWasCalled = false;
+      let hasText = false;
+      let accumulatedText = '';
+      let lastToolResultTime = 0;
+      let streamFinished = false;
+      let finishReason: string | undefined;
+      
+      // Track tool calls and results for continuation request
+      const toolCallHistory: Array<{
+        toolName: string;
+        input: Record<string, unknown>;
+        output: unknown;
+      }> = [];
+      
+      // Create a custom stream that monitors and forwards chunks
+      const encoder = new TextEncoder();
+      const monitoredStream = new ReadableStream({
+        async start(controller) {
+          // Initialize tool call injector (only active in development)
+          const toolInjector = new ToolCallInjector({
+            encoder,
+            controller,
+          });
+
+          try {
+            for await (const chunk of result.fullStream) {
+              if (chunk.type === 'tool-call') {
+                toolWasCalled = true;
+                const toolInput = 'input' in chunk ? (chunk.input as Record<string, unknown>) : {};
+                const toolCallId = 'toolCallId' in chunk ? String(chunk.toolCallId) : undefined;
+                
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[Stream Monitor] Tool call detected:', chunk.toolName, toolCallId ? `(id: ${toolCallId})` : '');
+                }
+                
+                // Store tool call for continuation request
+                toolCallHistory.push({
+                  toolName: chunk.toolName,
+                  input: toolInput,
+                  output: null, // Will be filled when result arrives
+                });
+                
+                // Handle tool call injection (dev mode only)
+                toolInjector.handleToolCall(chunk.toolName, toolInput, toolCallId);
+              } else if (chunk.type === 'tool-result') {
+                lastToolResultTime = Date.now();
+                const toolOutput = 'output' in chunk ? chunk.output : null;
+                const toolCallId = 'toolCallId' in chunk ? String(chunk.toolCallId) : undefined;
+                
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[Stream Monitor] Tool result received:', chunk.toolName, toolCallId ? `(id: ${toolCallId})` : '');
+                }
+                
+                // Update the most recent tool call with its result
+                if (toolCallHistory.length > 0) {
+                  const lastToolCall = toolCallHistory[toolCallHistory.length - 1];
+                  if (lastToolCall.output === null) {
+                    lastToolCall.output = toolOutput;
+                  }
+                }
+                
+                // Handle tool result injection (dev mode only)
+                toolInjector.handleToolResult(chunk.toolName, toolOutput, toolCallId);
+              } else if (chunk.type === 'text-delta') {
+                hasText = true;
+                accumulatedText += chunk.text;
+                
+                // Filter out any XML-like tool call structures (safety net - shouldn't appear with fixed prompt)
+                const filteredText = filterToolCallXml(chunk.text);
+                
+                // Only forward if there's content after filtering
+                if (filteredText.length > 0) {
+                  controller.enqueue(encoder.encode(filteredText));
+                }
+              } else if (chunk.type === 'finish') {
+                streamFinished = true;
+                finishReason = chunk.finishReason;
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[Stream Monitor] Stream finished:', chunk.finishReason);
+                }
+              }
+            }
+            
+            // More conservative check: Only continue if:
+            // 1. Tool was called
+            // 2. No text was generated (or only whitespace)
+            // 3. Stream finished (not just loop ended)
+            // 4. At least some time passed since tool result (guard against race conditions)
+            const timeSinceToolResult = lastToolResultTime > 0 ? Date.now() - lastToolResultTime : Infinity;
+            const shouldContinue = toolWasCalled && 
+                                   (!hasText || accumulatedText.trim().length === 0) &&
+                                   (streamFinished || timeSinceToolResult > 100); // 100ms buffer
+            
+            if (shouldContinue) {
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[Approach 6] Tool was called but no text generated.', {
+                  hasText,
+                  accumulatedLength: accumulatedText.length,
+                  streamFinished,
+                  finishReason,
+                  timeSinceToolResult,
+                });
+                console.log('[Approach 6] Making continuation request...');
+              }
+              
+              // Approach 6: Make continuation request and append to stream
+              // Build continuation message with explicit tool results (not just "results above")
+              // In production, tool results wouldn't be in conversation history, so we include them explicitly here
+              let continuationPrompt = 'Please continue the conversation and guide the student with Socratic questions.';
+              
+              // If we have tool results, include ALL of them explicitly in the prompt
+              // This matches production behavior where tool results aren't in conversation history
+              // CRITICAL: Handle multiple tool calls - include all results, not just the first one
+              const completedToolCalls = toolCallHistory.filter(tc => tc.output !== null);
+              if (completedToolCalls.length > 0) {
+                if (completedToolCalls.length === 1) {
+                  // Single tool call - simple format
+                  const toolResult = completedToolCalls[0].output as { is_correct?: boolean; is_valid?: boolean; verification_steps?: string; explanation?: string };
+                  continuationPrompt = `A verification was performed and the result is: ${JSON.stringify(toolResult)}. ` +
+                    `Please respond to the student naturally based on this result. Guide them with Socratic questions. ` +
+                    `CRITICAL: Do NOT mention tool names, tool calls, or show JSON data. Do NOT echo this prompt. ` +
+                    `Respond as if you're naturally thinking through the problem - never reveal that you used a tool. ` +
+                    `Do not output any XML, tool call structures, or reference verification processes - just respond naturally to guide the student.`;
+                } else {
+                  // Multiple tool calls - include all results (without tool names to avoid echoing)
+                  const toolResultsSummary = completedToolCalls.map(tc => {
+                    const result = tc.output as { is_correct?: boolean; is_valid?: boolean; verification_steps?: string; explanation?: string };
+                    return JSON.stringify(result);
+                  }).join('\n');
+                  
+                  continuationPrompt = `Multiple verifications were performed (${completedToolCalls.length} total). ` +
+                    `Here are all the results:\n${toolResultsSummary}\n\n` +
+                    `Please respond to the student naturally based on ALL of these results. Guide them with Socratic questions. ` +
+                    `Address all the verifications in your response. ` +
+                    `CRITICAL: Do NOT mention tool names, tool calls, or show JSON data. Do NOT echo this prompt. ` +
+                    `Respond as if you're naturally thinking through the problem - never reveal that you used tools. ` +
+                    `Do not output any XML, tool call structures, or reference verification processes - just respond naturally to guide the student.`;
+                }
+              }
+              
+              const continuationMessages = [
+                ...validMessages,
+                {
+                  role: 'user' as const,
+                  content: continuationPrompt,
+                },
+              ];
+              
+              const continuationResult = await streamText({
+                model: anthropic('claude-sonnet-4-5-20250929'),
+                system: systemPrompt,
+                messages: continuationMessages,
+                // Don't pass tools to avoid infinite loop
+              });
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[Approach 6] Continuation request created, streaming response...');
+              }
+              
+              // Stream continuation response text chunks
+              let continuationTextCount = 0;
+              for await (const chunk of continuationResult.fullStream) {
+                if (chunk.type === 'text-delta') {
+                  // Filter out any XML-like tool call structures (safety net - shouldn't appear with fixed prompt)
+                  const filteredText = filterToolCallXml(chunk.text);
+                  continuationTextCount += filteredText.length;
+                  
+                  // Only forward if there's content after filtering
+                  if (filteredText.length > 0) {
+                    controller.enqueue(encoder.encode(filteredText));
+                  }
+                }
+              }
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[Approach 6] Continuation response streamed:', continuationTextCount, 'characters');
+              }
+            }
+            
+            controller.close();
+          } catch (error) {
+            console.error('[Stream Monitor] Error:', error);
+            controller.error(error);
+          }
+        },
+      });
+      
+      // Return the monitored stream
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Stream] Monitored stream created with Approach 6 continuation detection');
+      }
+      
+      return new Response(monitoredStream, {
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+        },
+      });
+    } catch (streamError) {
+      console.error('[Stream Error] Failed to create stream response:', streamError);
+      throw streamError;
+    }
     
   } catch (error) {
     console.error('API route error:', error);
     
+    // Extract error message from various error formats
+    let errorMessage = 'Something went wrong. Please try again.';
+    
+    // Check if it's an AI SDK error with responseBody
+    interface ErrorWithResponseBody {
+      responseBody?: string | { error?: { message?: string } };
+      statusCode?: number;
+    }
+    const errorAny = error as ErrorWithResponseBody;
+    if (errorAny?.responseBody) {
+      try {
+        const body = typeof errorAny.responseBody === 'string' 
+          ? JSON.parse(errorAny.responseBody) 
+          : errorAny.responseBody;
+        if (body?.error?.message) {
+          errorMessage = body.error.message;
+        }
+      } catch {
+        // If parsing fails, use the string directly
+        if (typeof errorAny.responseBody === 'string' && errorAny.responseBody.includes('text content blocks must be non-empty')) {
+          errorMessage = 'Invalid message format. Please try rephrasing your problem or refresh the page.';
+        }
+      }
+    }
+    
     // Determine error type and return appropriate response
     if (error instanceof Error) {
+      const msg = error.message || errorMessage;
+      
       // Rate limiting (429 from Anthropic)
-      if (error.message.includes('429')) {
+      if (msg.includes('429') || errorAny?.statusCode === 429) {
         return new Response(
           JSON.stringify({ 
             error: 'Too many requests. Please wait a moment and try again.',
@@ -80,7 +393,7 @@ export async function POST(req: NextRequest) {
       }
       
       // Authentication error (401 from Anthropic)
-      if (error.message.includes('401') || error.message.includes('unauthorized')) {
+      if (msg.includes('401') || msg.includes('unauthorized') || errorAny?.statusCode === 401) {
         return new Response(
           JSON.stringify({ 
             error: 'API configuration error. Please contact support.' 
@@ -91,9 +404,42 @@ export async function POST(req: NextRequest) {
           }
         );
       }
+
+      // Model not found error (404 from Anthropic)
+      if (msg.includes('404') || 
+          msg.includes('not_found_error') ||
+          msg.includes('model:') ||
+          errorAny?.statusCode === 404) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Model configuration error. Please contact support.' 
+          }), 
+          { 
+            status: 500, 
+            headers: { 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+
+      // Invalid request error (400 from Anthropic) - often empty content blocks
+      if (msg.includes('400') || 
+          msg.includes('invalid_request_error') ||
+          msg.includes('text content blocks must be non-empty') ||
+          msg.includes('content blocks must be non-empty') ||
+          errorAny?.statusCode === 400) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid message format. Please try rephrasing your problem or refresh the page.' 
+          }), 
+          { 
+            status: 400, 
+            headers: { 'Content-Type': 'application/json' } 
+          }
+        );
+      }
       
       // Network/connection errors
-      if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
+      if (msg.includes('network') || msg.includes('ENOTFOUND')) {
         return new Response(
           JSON.stringify({ 
             error: 'Network error. Please check your connection and try again.' 

@@ -153,7 +153,7 @@ Build an AI math tutor that guides students through problems using Socratic ques
 
 ---
 
-## 4-Phase Implementation
+## 5-Phase Implementation
 
 ### **Phase 1: Foundation (Day 1) - 4-6 hours**
 **Goal:** Text-based Socratic tutoring working end-to-end
@@ -176,7 +176,174 @@ Build an AI math tutor that guides students through problems using Socratic ques
 
 ---
 
-### **Phase 2: Image Upload (Day 2) - 6-8 hours**
+### **Phase 2: Math Verification with Tool Calling (Day 2) - 8-10 hours**
+**Goal:** Ensure mathematical correctness by verifying student answers and calculations using symbolic math tools
+
+**Critical Philosophy - Gentle Guidance Principle:**
+- **Minimal Intervention:** Only provide corrective hints when there are CLEAR, REPEATED signals that the student needs help
+- **Gentle First Approach:** Always start with gentle questions, not corrections
+- **Progressive Escalation:** Only escalate to stronger hints after multiple gentle attempts
+- **Respect Student Thinking:** Even wrong answers deserve respect - guide through questioning, not direct correction
+- **Verification as Teaching:** Use verification tools to guide understanding, not to judge
+
+**Tasks:**
+1. Install and integrate nerdamer (symbolic math library for K-12 + calculus)
+2. Set up Anthropic tool calling/function calling infrastructure
+3. Create math verification tools (equation solving, derivatives, integrals, calculations)
+4. Integrate tool calls into Claude's response generation flow
+5. Implement gentle error handling with progressive hint escalation
+6. Test verification across problem types (algebra, geometry, fractions, calculus)
+
+**Math Verification Tools:**
+```typescript
+// Tool definitions for Claude to call
+const mathVerificationTools = {
+  // Verify equation solutions
+  verify_equation_solution: {
+    description: "Verify if a student's solution to an equation is correct",
+    parameters: {
+      equation: "string",  // "2x + 5 = 13"
+      claimed_solution: "string",  // "x = 4"
+    },
+    returns: {
+      is_correct: "boolean",
+      verification_steps: "string",  // "Substituting x=4: 2(4)+5=13 ✓"
+      all_solutions: "string[]"  // For equations with multiple solutions
+    }
+  },
+  
+  // Verify algebraic manipulations
+  verify_algebraic_step: {
+    description: "Verify if an algebraic manipulation step is mathematically valid",
+    parameters: {
+      original_expression: "string",  // "2x + 5 = 13"
+      resulting_expression: "string",  // "2x = 8"
+      operation_described: "string"  // "subtract 5 from both sides"
+    },
+    returns: {
+      is_valid: "boolean",
+      explanation: "string",
+      corrected_expression: "string" // If invalid, show what it should be
+    }
+  },
+  
+  // Verify calculations
+  verify_calculation: {
+    description: "Verify if a numerical calculation is correct",
+    parameters: {
+      expression: "string",  // "8 × 5"
+      claimed_result: "string"  // "40"
+    },
+    returns: {
+      is_correct: "boolean",
+      correct_result: "string",
+      explanation: "string"
+    }
+  },
+  
+  // Verify derivatives (calculus)
+  verify_derivative: {
+    description: "Verify if a student's derivative calculation is correct",
+    parameters: {
+      function: "string",  // "x^2 + 3x"
+      claimed_derivative: "string"  // "2x + 3"
+    },
+    returns: {
+      is_correct: "boolean",
+      correct_derivative: "string",
+      verification_steps: "string"
+    }
+  },
+  
+  // Verify integrals (calculus)
+  verify_integral: {
+    description: "Verify if a student's integral calculation is correct",
+    parameters: {
+      function: "string",  // "2x + 3"
+      claimed_integral: "string"  // "x^2 + 3x + C"
+    },
+    returns: {
+      is_correct: "boolean",
+      correct_integral: "string",
+      verification_steps: "string"
+    }
+  },
+  
+  // Evaluate expressions (for checking intermediate steps)
+  evaluate_expression: {
+    description: "Evaluate a mathematical expression numerically or symbolically",
+    parameters: {
+      expression: "string"  // "3 × 4 + 5" or "x^2 + 5x when x=2"
+    },
+    returns: {
+      result: "string",
+      explanation: "string"
+    }
+  }
+};
+```
+
+**Tool Calling Integration:**
+```typescript
+// In /api/chat route - Integrated verification
+const result = await streamText({
+  model: anthropic('claude-sonnet-4-5-20250929'),
+  system: systemPrompt,
+  messages: validMessages,
+  tools: mathVerificationTools,
+  toolChoice: 'auto', // Claude decides when to call tools
+  maxSteps: 5 // Allow multiple tool calls per response
+});
+
+// Claude will automatically call tools when:
+// - Student provides an answer
+// - Student makes a calculation
+// - Claude needs to verify correctness before responding
+```
+
+**Gentle Error Handling Strategy:**
+```typescript
+// Progressive hint escalation logic
+interface ErrorHandlingStrategy {
+  // First wrong answer: Gentle question
+  firstAttempt: "Let's check that. What happens when we substitute that back in?",
+  
+  // Second wrong answer: Slightly more direct question
+  secondAttempt: "I see you're trying that approach. What do we get when we plug that value in?",
+  
+  // Third wrong answer: More specific guidance
+  thirdAttempt: "Let's think about this differently. What operation do we need to undo first?",
+  
+  // Fourth+ wrong answer: Concrete hint (but still not the answer)
+  subsequentAttempts: "Here's a hint: [specific guidance pointing to next step, not solution]"
+}
+
+// Tool verification results inform Claude's response
+// Claude should NEVER say "That's wrong" - instead use Socratic questioning
+```
+
+**Word Problem Handling:**
+For word problems, extract equations first, then verify:
+```typescript
+// Extract equation from word problem
+const extractedEquation = extractEquationFromWordProblem(wordProblem);
+// Then verify solution using verify_equation_solution
+```
+
+**Test Checkpoint:**
+- [ ] Tool calling infrastructure works
+- [ ] Verification tools correctly identify correct/incorrect answers
+- [ ] Claude uses tool results to guide (not correct directly)
+- [ ] Wrong answers trigger gentle Socratic questions (not corrections)
+- [ ] Multiple wrong attempts show progressive hint escalation
+- [ ] Works for algebra, geometry, fractions, calculus problems
+- [ ] Tool calls don't significantly slow down responses
+
+**Deliverable:** Math verification system ensuring correctness while maintaining Socratic methodology
+
+---
+
+### **Phase 3: Image Upload (Day 3) - 6-8 hours**
 **Goal:** Users can upload math problem images with smart multi-problem handling
 
 **Tasks:**
@@ -232,7 +399,7 @@ if (imageDetected) {
 
 ---
 
-### **Phase 3: LaTeX Rendering & Testing Framework (Day 3) - 6-8 hours**
+### **Phase 4: LaTeX Rendering & Testing Framework (Day 4) - 6-8 hours**
 
 #### **Part A: LaTeX Rendering (3-4 hours)**
 **Goal:** Math equations display properly in chat
@@ -309,7 +476,7 @@ const SOCRATIC_EVALUATION_CHECKLIST = [
 
 ---
 
-### **Phase 4: Deploy & Polish (Day 4) - 4-6 hours**
+### **Phase 5: Deploy & Polish (Day 5) - 4-6 hours**
 **Goal:** Production-ready app with excellent UX
 
 **Tasks:**

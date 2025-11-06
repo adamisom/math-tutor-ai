@@ -1,8 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MessageList } from './message-list';
 import { MessageInput } from './message-input';
+import { 
+  manageAttemptTracking, 
+  generateProblemSignature, 
+  incrementAttemptCount,
+  getCurrentProblemFromMessages 
+} from '../lib/attempt-tracking';
 
 interface Message {
   id: string;
@@ -10,28 +16,136 @@ interface Message {
   content: string;
 }
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  selectedProblem?: { id: string; problem: string } | null;
+}
+
+export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [previousProblem, setPreviousProblem] = useState<string | null>(null);
+  const [showStillThinking, setShowStillThinking] = useState(false);
+  const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const stillThinkingStartTimeRef = useRef<number | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
     const saved = loadConversation();
     if (saved.length > 0) {
-      setMessages(saved);
+      // Convert ConversationMessage[] to Message[] by adding ids
+      const messagesWithIds: Message[] = saved.map((msg, index) => ({
+        id: `saved-${index}-${Date.now()}`,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+      }));
+      setMessages(messagesWithIds);
     }
   }, []);
+
+  // Clear screen when problem is selected on test page
+  useEffect(() => {
+    if (selectedProblem) {
+      handleNewProblem();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProblem?.id]);
+
+  // Show "still thinking" message after 7 seconds of loading
+  useEffect(() => {
+    if (isLoading) {
+      // Clear any existing timers first
+      if (thinkingTimerRef.current) {
+        clearTimeout(thinkingTimerRef.current);
+        thinkingTimerRef.current = null;
+      }
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+
+      // Set timer to show "still thinking" after 7 seconds
+      thinkingTimerRef.current = setTimeout(() => {
+        setShowStillThinking(true);
+        stillThinkingStartTimeRef.current = Date.now();
+        // Hide after 3 seconds (but will respect 1 second minimum when loading stops)
+        hideTimerRef.current = setTimeout(() => {
+          setShowStillThinking(false);
+          stillThinkingStartTimeRef.current = null;
+          hideTimerRef.current = null;
+        }, 3000);
+        thinkingTimerRef.current = null;
+      }, 7000);
+
+      return () => {
+        if (thinkingTimerRef.current) {
+          clearTimeout(thinkingTimerRef.current);
+          thinkingTimerRef.current = null;
+        }
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = null;
+        }
+        setShowStillThinking(false);
+      };
+    } else {
+      // Clear any existing timers when loading stops
+      if (thinkingTimerRef.current) {
+        clearTimeout(thinkingTimerRef.current);
+        thinkingTimerRef.current = null;
+      }
+      
+      // If "still thinking" is showing, ensure it persists for at least 1 second
+      if (showStillThinking && stillThinkingStartTimeRef.current !== null) {
+        const elapsed = Date.now() - stillThinkingStartTimeRef.current;
+        const minDisplayTime = 1000; // 1 second minimum
+        
+        if (elapsed < minDisplayTime) {
+          // Not enough time has passed, wait for remaining time
+          const remainingTime = minDisplayTime - elapsed;
+          if (hideTimerRef.current) {
+            clearTimeout(hideTimerRef.current);
+          }
+          hideTimerRef.current = setTimeout(() => {
+            setShowStillThinking(false);
+            stillThinkingStartTimeRef.current = null;
+            hideTimerRef.current = null;
+          }, remainingTime);
+        } else {
+          // Already shown for at least 1 second, hide immediately
+          if (hideTimerRef.current) {
+            clearTimeout(hideTimerRef.current);
+          }
+          setShowStillThinking(false);
+          stillThinkingStartTimeRef.current = null;
+          hideTimerRef.current = null;
+        }
+      } else {
+        // Not showing, just clear timers
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = null;
+        }
+        setShowStillThinking(false);
+      }
+    }
+  }, [isLoading, showStillThinking]);
+
 
   // Save conversation changes
   useEffect(() => {
     if (messages.length > 0) {
       setHasUnsavedChanges(true);
-      // Debounced save
+      // Debounced save - convert Message[] to ConversationMessage[]
       const timer = setTimeout(() => {
-        saveConversation(messages);
+        const conversationMessages: ConversationMessage[] = messages.map(msg => ({
+          role: msg.role,
+          content: msg.content,
+        }));
+        saveConversation(conversationMessages);
         setHasUnsavedChanges(false);
       }, 1000);
       return () => clearTimeout(timer);
@@ -42,6 +156,7 @@ export function ChatInterface() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setInput(e.target.value);
   };
+
 
   // Handle form submission
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -62,7 +177,30 @@ export function ChatInterface() {
     setError(null);
 
     try {
-      // Call our API
+      // Track attempt metadata for this problem
+      const currentProblem = getCurrentProblemFromMessages(newMessages);
+      const attemptTracking = manageAttemptTracking(newMessages, previousProblem || undefined);
+      
+      // If this looks like an answer (not a new problem), increment attempt count
+      // Simple heuristic: if it's short and contains = or numbers, might be an answer
+      const looksLikeAnswer = input.trim().length < 50 && (input.includes('=') || /\d+/.test(input));
+      if (looksLikeAnswer && !attemptTracking.isNewProblem && currentProblem) {
+        const problemSig = generateProblemSignature(currentProblem);
+        incrementAttemptCount(problemSig);
+      }
+      
+      // Update previous problem if this is a new one
+      if (attemptTracking.isNewProblem && currentProblem) {
+        setPreviousProblem(currentProblem);
+      }
+      
+      // Get current attempt count for the problem
+      const problemSig = currentProblem ? generateProblemSignature(currentProblem) : '';
+      const attemptCount = problemSig ? 
+        (typeof window !== 'undefined' ? 
+          parseInt(localStorage.getItem(`attempts_${problemSig}`) || '0', 10) : 0) : 0;
+
+      // Call our API with attempt metadata
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -73,6 +211,11 @@ export function ChatInterface() {
             role: msg.role,
             content: msg.content,
           })),
+          attemptMetadata: {
+            previousProblem: previousProblem || undefined,
+            problemSignature: problemSig || undefined,
+            attemptCount: attemptCount,
+          },
         }),
       });
 
@@ -94,7 +237,7 @@ export function ChatInterface() {
 
       setMessages([...newMessages, assistantMessage]);
 
-      // Handle streaming response
+      // Handle streaming response (text stream format)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedContent = '';
@@ -128,9 +271,55 @@ export function ChatInterface() {
   // Handle new problem - clear conversation
   const handleNewProblem = () => {
     setMessages([]);
+    setPreviousProblem(null);
     clearConversation();
     setHasUnsavedChanges(false);
     setError(null);
+    setShowStillThinking(false);
+    if (thinkingTimerRef.current) {
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+
+  // Clear all localStorage data (developer mode only)
+  const handleClearStorage = () => {
+    if (typeof window === 'undefined') return;
+    
+    if (confirm('Clear all localStorage data? This will remove conversation history, attempt tracking, and test results.')) {
+      try {
+        // Clear conversation history
+        localStorage.removeItem('math-tutor-conversation');
+        
+        // Clear all attempt tracking keys
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('attempts_')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        // Clear test results
+        localStorage.removeItem('math-tutor-test-results');
+        
+        // Reset state
+        setMessages([]);
+        setPreviousProblem(null);
+        setHasUnsavedChanges(false);
+        setError(null);
+        
+        console.log('[Dev] localStorage cleared');
+      } catch (error) {
+        console.error('[Dev] Failed to clear localStorage:', error);
+        alert('Failed to clear localStorage. Check console for details.');
+      }
+    }
   };
 
   return (
@@ -144,6 +333,15 @@ export function ChatInterface() {
         <div className="flex items-center gap-3">
           {hasUnsavedChanges && (
             <span className="text-xs text-gray-500">Saving...</span>
+          )}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={handleClearStorage}
+              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              title="Clear all localStorage data (developer mode only)"
+            >
+              Clear Storage
+            </button>
           )}
           <button
             onClick={handleNewProblem}
@@ -159,6 +357,7 @@ export function ChatInterface() {
         <MessageList 
           messages={messages} 
           isLoading={isLoading}
+          showStillThinking={showStillThinking}
         />
         
         <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">
@@ -176,13 +375,14 @@ export function ChatInterface() {
             </div>
           )}
 
+
           {/* Welcome message for empty conversation */}
           {messages.length === 0 && !isLoading && (
             <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-blue-800 font-medium">Welcome to your AI Math Tutor! 👋</p>
               <p className="text-blue-700 text-sm mt-1">
-                I'll guide you through math problems using questions to help you discover solutions yourself. 
-                Try typing a problem like "2x + 5 = 13" to get started!
+                I&apos;ll guide you through math problems using questions to help you discover solutions yourself. 
+                Try typing a problem like &quot;2x + 5 = 13&quot; to get started!
               </p>
             </div>
           )}
@@ -201,7 +401,11 @@ export function ChatInterface() {
 }
 
 // Simple localStorage utilities
-function saveConversation(messages: any[]) {
+interface ConversationMessage {
+  role: string;
+  content: string;
+}
+function saveConversation(messages: ConversationMessage[]) {
   try {
     localStorage.setItem('math-tutor-conversation', JSON.stringify(messages));
   } catch (error) {
@@ -219,7 +423,7 @@ function saveConversation(messages: any[]) {
   }
 }
 
-function loadConversation(): any[] {
+function loadConversation(): ConversationMessage[] {
   try {
     const saved = localStorage.getItem('math-tutor-conversation');
     return saved ? JSON.parse(saved) : [];
