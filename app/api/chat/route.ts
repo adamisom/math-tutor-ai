@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { getSocraticPrompt, extractProblemFromMessages } from '../../lib/prompts';
 import { mathVerificationTools } from '../../lib/math-tools';
 import { manageAttemptTracking } from '../../lib/attempt-tracking';
+import { ToolCallInjector } from '../../lib/tool-call-injection';
 
 // Shared store for tool calls in this request (for testing/logging)
 // Note: Currently unused, but kept for potential future tool call logging/injection
@@ -144,18 +145,36 @@ export async function POST(req: NextRequest) {
       const encoder = new TextEncoder();
       const monitoredStream = new ReadableStream({
         async start(controller) {
+          // Initialize tool call injector (only active in development)
+          const toolInjector = new ToolCallInjector({
+            encoder,
+            controller,
+          });
+
           try {
             for await (const chunk of result.fullStream) {
               if (chunk.type === 'tool-call') {
                 toolWasCalled = true;
+                const toolInput = 'input' in chunk ? (chunk.input as Record<string, unknown>) : {};
+                const toolCallId = 'toolCallId' in chunk ? String(chunk.toolCallId) : undefined;
+                
                 if (process.env.NODE_ENV === 'development') {
-                  console.log('[Stream Monitor] Tool call detected:', chunk.toolName);
+                  console.log('[Stream Monitor] Tool call detected:', chunk.toolName, toolCallId ? `(id: ${toolCallId})` : '');
                 }
+                
+                // Handle tool call injection (dev mode only)
+                toolInjector.handleToolCall(chunk.toolName, toolInput, toolCallId);
               } else if (chunk.type === 'tool-result') {
                 lastToolResultTime = Date.now();
+                const toolOutput = 'output' in chunk ? chunk.output : null;
+                const toolCallId = 'toolCallId' in chunk ? String(chunk.toolCallId) : undefined;
+                
                 if (process.env.NODE_ENV === 'development') {
-                  console.log('[Stream Monitor] Tool result received:', chunk.toolName);
+                  console.log('[Stream Monitor] Tool result received:', chunk.toolName, toolCallId ? `(id: ${toolCallId})` : '');
                 }
+                
+                // Handle tool result injection (dev mode only)
+                toolInjector.handleToolResult(chunk.toolName, toolOutput, toolCallId);
               } else if (chunk.type === 'text-delta') {
                 hasText = true;
                 accumulatedText += chunk.text;

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { User, Bot, Loader2 } from 'lucide-react';
+import { parseToolCallBlocks } from '../lib/tool-call-injection';
 
 interface Message {
   id: string;
@@ -33,8 +34,9 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
         />
       ))}
       
-      {/* Loading indicator for when AI is thinking */}
-      {isLoading && messages.length > 0 && (
+      {/* Loading indicator for when AI is thinking - only show if last message is from user */}
+      {/* If last message is assistant, use streaming dots inside that bubble instead */}
+      {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
         <div className="flex items-start gap-3 sm:gap-4">
           <div className="flex-shrink-0 w-10 h-10 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center shadow-sm">
             <Bot className="w-5 h-5 text-gray-600" />
@@ -84,15 +86,24 @@ function MessageBubble({ message, isLastMessage, isLoading }: MessageBubbleProps
             ? 'bg-blue-500 text-white ml-6 sm:ml-8'
             : 'bg-white text-gray-900 mr-6 sm:mr-8 border border-gray-200'
         }`}>
-          <MessageContent content={message.content} />
-          
-          {/* Streaming indicator for last message */}
-          {!isUser && isLastMessage && isLoading && (
-            <div className="mt-2 flex items-center gap-1">
-              <div className="w-1 h-1 bg-gray-400 rounded-full animate-pulse" />
-              <div className="w-1 h-1 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }} />
-              <div className="w-1 h-1 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+          {/* Show content or thinking indicator */}
+          {!isUser && isLastMessage && isLoading && !message.content ? (
+            <div className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm font-medium">Thinking...</span>
             </div>
+          ) : (
+            <>
+              <MessageContent content={message.content} />
+              {/* Streaming indicator for last message when content exists */}
+              {!isUser && isLastMessage && isLoading && message.content && (
+                <div className="mt-2 flex items-center gap-1">
+                  <div className="w-1 h-1 bg-gray-400 rounded-full animate-pulse" />
+                  <div className="w-1 h-1 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }} />
+                  <div className="w-1 h-1 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+                </div>
+              )}
+            </>
           )}
         </div>
         
@@ -110,11 +121,43 @@ interface MessageContentProps {
 }
 
 function MessageContent({ content }: MessageContentProps) {
-  // For Phase 1, we'll just render plain text
-  // In Phase 3, this will be enhanced with LaTeX rendering
+  // Parse tool call blocks and regular content
+  const parts = parseToolCallBlocks(content);
+  
+  // Debug logging in development
+  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+    if (content.includes('[TOOL_CALL_START]') || content.includes('[TOOL_RESULT_START]')) {
+      console.log('[MessageContent] Parsed parts:', parts);
+      console.log('[MessageContent] Original content length:', content.length);
+    }
+  }
+  
   return (
-    <div className="whitespace-pre-wrap">
-      {content}
+    <div className="space-y-2">
+      {parts.map((part, index) => {
+        if (part.type === 'tool-call') {
+          return (
+            <div key={index} className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs font-mono">
+              <div className="text-blue-700 font-semibold mb-1">{part.header}</div>
+              <div className="text-blue-600 whitespace-pre-wrap">{part.content}</div>
+            </div>
+          );
+        } else if (part.type === 'tool-result') {
+          return (
+            <div key={index} className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs font-mono">
+              <div className="text-green-700 font-semibold mb-1">{part.header}</div>
+              <div className="text-green-600 whitespace-pre-wrap">{part.content}</div>
+            </div>
+          );
+        } else {
+          return (
+            <div key={index} className="whitespace-pre-wrap">
+              {part.content}
+            </div>
+          );
+        }
+      })}
     </div>
   );
 }
+
