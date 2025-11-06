@@ -53,7 +53,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProblem?.id]);
 
-  // Show "still thinking" message after 5 seconds of loading
+  // Show "still thinking" message after 7 seconds of loading
   useEffect(() => {
     if (isLoading) {
       // Clear any existing timers first
@@ -66,7 +66,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         hideTimerRef.current = null;
       }
 
-      // Set timer to show "still thinking" after 5 seconds
+      // Set timer to show "still thinking" after 7 seconds
       thinkingTimerRef.current = setTimeout(() => {
         setShowStillThinking(true);
         // Hide after 3 seconds
@@ -75,7 +75,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           hideTimerRef.current = null;
         }, 3000);
         thinkingTimerRef.current = null;
-      }, 5000);
+      }, 7000);
 
       return () => {
         if (thinkingTimerRef.current) {
