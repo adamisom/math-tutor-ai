@@ -937,7 +937,7 @@ export default function TestPage() {
 
         {/* Chat Interface */}
         <div className="flex-1">
-          <ChatInterface />
+          <ChatInterface selectedProblem={selectedProblem} />
         </div>
       </div>
     );

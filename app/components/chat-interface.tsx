@@ -16,7 +16,11 @@ interface Message {
   content: string;
 }
 
-export function ChatInterface() {
+interface ChatInterfaceProps {
+  selectedProblem?: { id: string; problem: string } | null;
+}
+
+export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +41,14 @@ export function ChatInterface() {
       setMessages(messagesWithIds);
     }
   }, []);
+
+  // Clear screen when problem is selected on test page
+  useEffect(() => {
+    if (selectedProblem) {
+      handleNewProblem();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProblem?.id]);
 
   // Save conversation changes
   useEffect(() => {
