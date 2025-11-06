@@ -27,23 +27,17 @@ describe('isLaTeXEnabled', () => {
   beforeEach(() => {
     // Reset mocks
     mockLocalStorage.clear();
-    vi.resetModules();
     delete (process.env as { NEXT_PUBLIC_ENABLE_LATEX?: string }).NEXT_PUBLIC_ENABLE_LATEX;
   });
 
   it('should default to enabled when no flags are set', () => {
-    // Mock window as undefined (server-side)
-    const originalWindow = global.window;
-    // @ts-expect-error - intentionally removing window
-    delete global.window;
+    // Mock window without localStorage override
+    global.window = {
+      localStorage: mockLocalStorage,
+    } as unknown as Window & typeof globalThis;
     
-    // Re-import to get fresh module
-    vi.resetModules();
-    const { isLaTeXEnabled } = require('../../app/lib/feature-flags');
-    
+    // No localStorage or env var set - should default to true
     expect(isLaTeXEnabled()).toBe(true);
-    
-    global.window = originalWindow;
   });
 
   it('should respect localStorage override (client-side)', () => {
@@ -54,10 +48,6 @@ describe('isLaTeXEnabled', () => {
     
     // Set localStorage override
     mockLocalStorage.setItem('feature:latex', 'false');
-    
-    vi.resetModules();
-    const { isLaTeXEnabled } = require('../../app/lib/feature-flags');
-    
     expect(isLaTeXEnabled()).toBe(false);
     
     // Test enabled
@@ -73,10 +63,6 @@ describe('isLaTeXEnabled', () => {
     
     // Set environment variable
     process.env.NEXT_PUBLIC_ENABLE_LATEX = 'false';
-    
-    vi.resetModules();
-    const { isLaTeXEnabled } = require('../../app/lib/feature-flags');
-    
     expect(isLaTeXEnabled()).toBe(false);
     
     // Test enabled
@@ -94,9 +80,6 @@ describe('isLaTeXEnabled', () => {
     mockLocalStorage.setItem('feature:latex', 'false');
     process.env.NEXT_PUBLIC_ENABLE_LATEX = 'true';
     
-    vi.resetModules();
-    const { isLaTeXEnabled } = require('../../app/lib/feature-flags');
-    
     // localStorage should win
     expect(isLaTeXEnabled()).toBe(false);
   });
@@ -109,9 +92,6 @@ describe('isLaTeXEnabled', () => {
     
     // No env var set
     delete (process.env as { NEXT_PUBLIC_ENABLE_LATEX?: string }).NEXT_PUBLIC_ENABLE_LATEX;
-    
-    vi.resetModules();
-    const { isLaTeXEnabled } = require('../../app/lib/feature-flags');
     
     // Should default to true
     expect(isLaTeXEnabled()).toBe(true);
@@ -128,9 +108,6 @@ describe('setLaTeXEnabled', () => {
       localStorage: mockLocalStorage,
     } as unknown as Window & typeof globalThis;
     
-    vi.resetModules();
-    const { setLaTeXEnabled } = require('../../app/lib/feature-flags');
-    
     setLaTeXEnabled(false);
     expect(mockLocalStorage.getItem('feature:latex')).toBe('false');
     
@@ -142,9 +119,6 @@ describe('setLaTeXEnabled', () => {
     const originalWindow = global.window;
     // @ts-expect-error - intentionally removing window
     delete global.window;
-    
-    vi.resetModules();
-    const { setLaTeXEnabled } = require('../../app/lib/feature-flags');
     
     // Should not throw
     expect(() => setLaTeXEnabled(false)).not.toThrow();
