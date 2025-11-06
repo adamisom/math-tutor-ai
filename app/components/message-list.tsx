@@ -302,7 +302,7 @@ function MessageContent({ content }: MessageContentProps) {
             // Note: Bold markdown in text parts will still work since MathRenderer preserves text
             return (
               <div key={index} className="whitespace-pre-wrap">
-                <MathRendererWithBold content={part.content} enableLaTeX={latexEnabled} />
+                <MathRendererWithBold content={part.content} />
               </div>
             );
           } else {
