@@ -46,7 +46,7 @@ export function MessageInput({
   return (
     <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-start">
       {showImageUpload && onImageUpload && (
-        <div className="relative">
+        <div className="relative flex-shrink-0">
           <ImageUploadButton 
             onImageProcessed={onImageUpload}
             disabled={isLoading}

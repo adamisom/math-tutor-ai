@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, DragEvent, ChangeEvent } from 'react';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Upload, X, ImagePlus } from 'lucide-react';
 import { processImage, ProcessedImage } from '../lib/image-processing';
 
 // Re-export ProcessedImage for convenience
@@ -228,13 +228,20 @@ export function ImageUploadButton({
         type="button"
         onClick={handleButtonClick}
         disabled={disabled || isProcessing}
-        className="flex-shrink-0 p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="flex-shrink-0 flex items-center gap-2 px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 rounded-xl border-2 border-blue-200 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md font-medium self-start"
         title="Upload image"
+        style={{ minHeight: '48px' }}
       >
         {isProcessing ? (
-          <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+          <>
+            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm">Processing...</span>
+          </>
         ) : (
-          <ImageIcon className="w-5 h-5" />
+          <>
+            <ImagePlus className="w-5 h-5" />
+            <span className="text-sm">Upload image here</span>
+          </>
         )}
       </button>
       
