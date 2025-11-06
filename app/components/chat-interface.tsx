@@ -27,6 +27,8 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const [error, setError] = useState<Error | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [previousProblem, setPreviousProblem] = useState<string | null>(null);
+  const [showStillThinking, setShowStillThinking] = useState(false);
+  const [thinkingTimer, setThinkingTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -49,6 +51,30 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProblem?.id]);
+
+  // Show "still thinking" message after 5 seconds of loading
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setShowStillThinking(true);
+        // Hide after 3 seconds
+        setTimeout(() => {
+          setShowStillThinking(false);
+        }, 3000);
+      }, 5000);
+      setThinkingTimer(timer);
+      return () => {
+        clearTimeout(timer);
+        setShowStillThinking(false);
+      };
+    } else {
+      if (thinkingTimer) {
+        clearTimeout(thinkingTimer);
+        setThinkingTimer(null);
+      }
+      setShowStillThinking(false);
+    }
+  }, [isLoading, thinkingTimer]);
 
   // Save conversation changes
   useEffect(() => {
@@ -189,6 +215,11 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     clearConversation();
     setHasUnsavedChanges(false);
     setError(null);
+    setShowStillThinking(false);
+    if (thinkingTimer) {
+      clearTimeout(thinkingTimer);
+      setThinkingTimer(null);
+    }
   };
 
   // Clear all localStorage data (developer mode only)
@@ -262,6 +293,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         <MessageList 
           messages={messages} 
           isLoading={isLoading}
+          showStillThinking={showStillThinking}
         />
         
         <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">

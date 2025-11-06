@@ -13,9 +13,10 @@ interface Message {
 interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
+  showStillThinking?: boolean;
 }
 
-export function MessageList({ messages, isLoading }: MessageListProps) {
+export function MessageList({ messages, isLoading, showStillThinking = false }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -45,6 +46,20 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
             <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm mr-6 sm:mr-8 flex items-center gap-3">
               <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
               <span className="text-gray-600 text-sm font-medium">Thinking...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* "Still thinking" message after 5 seconds */}
+      {showStillThinking && (
+        <div className="flex items-start gap-3 sm:gap-4">
+          <div className="flex-shrink-0 w-10 h-10 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center shadow-sm">
+            <Bot className="w-5 h-5 text-gray-600" />
+          </div>
+          <div className="flex-1 max-w-md sm:max-w-lg">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl px-4 py-3 shadow-sm mr-6 sm:mr-8">
+              <span className="text-yellow-800 text-sm font-medium">Math Tutor is still thinking...</span>
             </div>
           </div>
         </div>
