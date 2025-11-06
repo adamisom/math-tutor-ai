@@ -39,7 +39,7 @@ export function MessageInput({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-end">
+    <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-start">
       <div className="flex-1 relative">
         <textarea
           value={input}
