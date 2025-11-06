@@ -140,11 +140,39 @@ Unit tests are in `tests/unit/math-verification.test.ts`:
 
 ## Test Problem Dataset
 
-Test problems are in `tests/unit/test-problems.ts`:
+Test problems are available in two locations:
 
-- 8 problems covering all types (algebra, geometry, fractions, word problems, calculus)
-- Based on common K-12 math problems
-- Each includes expected patterns and red flags
+1. **Unit Test Problems** (`tests/unit/test-problems.ts`):
+   - 8 problems covering all types (algebra, geometry, fractions, word problems, calculus)
+   - Based on common K-12 math problems
+   - Each includes expected patterns and red flags
+
+2. **Interactive Test Page** (`/test` route):
+   - **34 comprehensive test problems** with specific evaluation criteria
+   - **Breakdown by difficulty level:**
+     - **Beginner (5 problems):** 2 Algebra, 1 Fractions, 1 Geometry, 1 Word Problem
+     - **Intermediate (16 problems):** 8 Algebra, 3 Fractions, 2 Geometry, 3 Word Problem
+     - **Advanced (13 problems):** 3 Algebra, 1 Fractions, 2 Geometry, 2 Word Problem, 5 Calculus (1 basic derivative, 1 chain rule, 1 product rule, 1 basic integral, 1 power rule integral)
+     - **Total: 34 problems**
+   - **Breakdown by category:**
+     - **Algebra:** 13 problems (2 Beginner, 8 Intermediate, 3 Advanced)
+     - **Fractions:** 5 problems (1 Beginner, 3 Intermediate, 1 Advanced)
+     - **Geometry:** 5 problems (1 Beginner, 2 Intermediate, 2 Advanced)
+     - **Word Problems:** 6 problems (1 Beginner, 3 Intermediate, 2 Advanced)
+     - **Calculus:** 5 problems (all Advanced)
+   - Each problem has:
+     - **Expected Patterns (Green Flags):** Phrases or concepts that indicate good Socratic methodology
+     - **Red Flags:** Phrases or behaviors that indicate violations of Socratic methodology
+   - Example: Problem `5x - 7 = 18` has:
+     - Green flags: "undo", "add 7", "divide by 5", "Tool verification"
+     - Red flags: "x = 5", "answer is 5", "Gives direct answer"
+
+**Note on Flag Evaluation:**
+- Evaluators should note whether green/red flags appeared in the conversation
+- Flag presence/absence is **observational only** and does not determine the score
+- A great score can be achieved without matching all green flags
+- A mediocre score doesn't necessarily mean flags were missed
+- Flags are indicators of Socratic methodology quality, not strict requirements
 
 ## Expected Behavior
 
