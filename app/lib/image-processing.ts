@@ -18,7 +18,7 @@ export interface ProcessedImage {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_WIDTH = 2048;
-const MIN_DIMENSION = 100;
+const MIN_DIMENSION = 20; // Minimum width and height in pixels
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
 
 /**
