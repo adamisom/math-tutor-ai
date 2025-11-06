@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import { ChatInterface } from '../components/chat-interface';
 import { CheckCircle, XCircle, AlertTriangle, RotateCcw, Copy, Check } from 'lucide-react';
 
@@ -723,11 +723,13 @@ export default function TestPage() {
   const [isClient, setIsClient] = useState(false);
 
   // Set isClient to true after mount to avoid hydration mismatch
-  useEffect(() => {
+  // Using useLayoutEffect to run synchronously and reduce cascading renders
+  useLayoutEffect(() => {
     setIsClient(true);
   }, []);
 
   // Save test results to localStorage whenever they change (only on client)
+  // Note: isClient is not in dependencies - we check it inside the effect to avoid cascading renders
   useEffect(() => {
     if (!isClient || typeof window === 'undefined') return;
     try {
@@ -735,7 +737,8 @@ export default function TestPage() {
     } catch (error) {
       console.warn('Failed to save test results to localStorage:', error);
     }
-  }, [testResults, isClient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testResults]); // Only depend on testResults, check isClient inside
 
   const handleProblemSelect = (problem: TestProblem) => {
     setSelectedProblem(problem);
