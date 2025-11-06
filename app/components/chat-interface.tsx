@@ -9,7 +9,6 @@ import {
   incrementAttemptCount,
   getCurrentProblemFromMessages 
 } from '../lib/attempt-tracking';
-import { TOOL_CALL_MARKERS } from '../lib/tool-call-injection';
 
 interface Message {
   id: string;
@@ -32,9 +31,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const stillThinkingStartTimeRef = useRef<number | null>(null);
-  const [showKeepThinking, setShowKeepThinking] = useState(false);
-  const keepThinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastLoadingStopTimeRef = useRef<number | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -138,74 +134,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     }
   }, [isLoading, showStillThinking]);
 
-  // Track when loading stops to time the "Keep thinking" button
-  useEffect(() => {
-    if (!isLoading && lastLoadingStopTimeRef.current === null) {
-      // Loading just stopped - record the time
-      lastLoadingStopTimeRef.current = Date.now();
-    } else if (isLoading) {
-      // Loading started - reset the timer
-      lastLoadingStopTimeRef.current = null;
-      if (keepThinkingTimerRef.current) {
-        clearTimeout(keepThinkingTimerRef.current);
-        keepThinkingTimerRef.current = null;
-      }
-      setShowKeepThinking(false);
-    }
-  }, [isLoading]);
-
-  // Check if "Keep thinking" button should be shown
-  // Show it 5 seconds after loading stops IF last message is from assistant and contains tool call markers
-  useEffect(() => {
-    // Clear any existing timer
-    if (keepThinkingTimerRef.current) {
-      clearTimeout(keepThinkingTimerRef.current);
-      keepThinkingTimerRef.current = null;
-    }
-
-    if (!isLoading && messages.length > 0 && lastLoadingStopTimeRef.current !== null) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === 'assistant') {
-        const hasToolCalls = lastMessage.content.includes(TOOL_CALL_MARKERS.START) || 
-                           lastMessage.content.includes(TOOL_CALL_MARKERS.RESULT_START);
-        
-        if (hasToolCalls) {
-          // Calculate time elapsed since loading stopped
-          const elapsed = Date.now() - lastLoadingStopTimeRef.current;
-          const delay = 5000; // 5 seconds
-          
-          if (elapsed >= delay) {
-            // Already past 5 seconds, show immediately
-            setShowKeepThinking(true);
-          } else {
-            // Show after remaining time
-            const remainingTime = delay - elapsed;
-            keepThinkingTimerRef.current = setTimeout(() => {
-              setShowKeepThinking(true);
-              keepThinkingTimerRef.current = null;
-            }, remainingTime);
-          }
-        } else {
-          // No tool calls, don't show
-          setShowKeepThinking(false);
-        }
-      } else {
-        // Last message is from user, don't show
-        setShowKeepThinking(false);
-      }
-    } else {
-      // Loading or no messages, don't show
-      setShowKeepThinking(false);
-    }
-
-    // Cleanup
-    return () => {
-      if (keepThinkingTimerRef.current) {
-        clearTimeout(keepThinkingTimerRef.current);
-        keepThinkingTimerRef.current = null;
-      }
-    };
-  }, [messages, isLoading]);
 
   // Save conversation changes
   useEffect(() => {
@@ -229,97 +157,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     setInput(e.target.value);
   };
 
-  // Handle "Keep thinking" button click - manually trigger continuation
-  const handleKeepThinking = async () => {
-    if (isLoading) return; // Don't trigger if already loading
-
-    setIsLoading(true);
-    setError(null);
-    setShowKeepThinking(false);
-
-    try {
-      // Track attempt metadata
-      const currentProblem = getCurrentProblemFromMessages(messages);
-      const attemptTracking = manageAttemptTracking(messages, previousProblem || undefined);
-      const problemSig = currentProblem ? generateProblemSignature(currentProblem) : '';
-      const attemptCount = problemSig ? 
-        (typeof window !== 'undefined' ? 
-          parseInt(localStorage.getItem(`attempts_${problemSig}`) || '0', 10) : 0) : 0;
-
-      // Send continuation request with special flag
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: messages.map(msg => ({
-            role: msg.role,
-            content: msg.content,
-          })),
-          attemptMetadata: {
-            previousProblem: previousProblem || undefined,
-            problemSignature: problemSig || undefined,
-            attemptCount: attemptCount,
-          },
-          continueRequest: true, // Flag to force continuation
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Something went wrong');
-      }
-
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      // Create or find the last assistant message to append to
-      let assistantMessageIndex = messages.length - 1;
-      if (assistantMessageIndex < 0 || messages[assistantMessageIndex].role !== 'assistant') {
-        // Create new assistant message
-        const newAssistantMessage: Message = {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: '',
-        };
-        setMessages([...messages, newAssistantMessage]);
-        assistantMessageIndex = messages.length;
-      }
-
-      // Read stream and update assistant message
-      let accumulatedContent = messages[assistantMessageIndex]?.content || '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        accumulatedContent += chunk;
-
-        // Update the assistant message with accumulated content
-        setMessages(prev => {
-          const updated = [...prev];
-          if (updated[assistantMessageIndex]) {
-            updated[assistantMessageIndex] = {
-              ...updated[assistantMessageIndex],
-              content: accumulatedContent,
-            };
-          }
-          return updated;
-        });
-      }
-
-      setIsLoading(false);
-    } catch (err) {
-      setIsLoading(false);
-      setError(err instanceof Error ? err : new Error('Failed to continue response'));
-    }
-  };
 
   // Handle form submission
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -439,7 +276,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     setHasUnsavedChanges(false);
     setError(null);
     setShowStillThinking(false);
-    setShowKeepThinking(false);
     if (thinkingTimerRef.current) {
       clearTimeout(thinkingTimerRef.current);
       thinkingTimerRef.current = null;
@@ -448,11 +284,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
-    if (keepThinkingTimerRef.current) {
-      clearTimeout(keepThinkingTimerRef.current);
-      keepThinkingTimerRef.current = null;
-    }
-    lastLoadingStopTimeRef.current = null;
   };
 
   // Clear all localStorage data (developer mode only)
@@ -544,18 +375,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             </div>
           )}
 
-          {/* "Keep thinking" button - shown when Claude might have stopped after tool calls */}
-          {showKeepThinking && !isLoading && (
-            <div className="mb-4 flex justify-center">
-              <button
-                onClick={handleKeepThinking}
-                className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium text-sm"
-                title="Claude may have stopped responding. Click to ask it to continue."
-              >
-                Keep thinking
-              </button>
-            </div>
-          )}
 
           {/* Welcome message for empty conversation */}
           {messages.length === 0 && !isLoading && (

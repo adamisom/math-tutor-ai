@@ -31,10 +31,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Parse request body - may include attempt tracking metadata and continuation request
-    const { messages, attemptMetadata, continueRequest } = await req.json();
+    // Parse request body - may include attempt tracking metadata
+    const { messages, attemptMetadata } = await req.json();
     // attemptMetadata: { previousProblem?: string, problemSignature?: string }
-    // continueRequest: boolean - if true, force continuation regardless of normal conditions
     
     // Validate messages format
     if (!Array.isArray(messages)) {
@@ -230,26 +229,20 @@ export async function POST(req: NextRequest) {
             // 2. No text was generated (or only whitespace)
             // 3. Stream finished (not just loop ended)
             // 4. At least some time passed since tool result (guard against race conditions)
-            // OR if continueRequest flag is set (manual continuation request from user)
             const timeSinceToolResult = lastToolResultTime > 0 ? Date.now() - lastToolResultTime : Infinity;
-            const shouldContinue = continueRequest || // Manual continuation request
-                                   (toolWasCalled && 
-                                    (!hasText || accumulatedText.trim().length === 0) &&
-                                    (streamFinished || timeSinceToolResult > 100)); // 100ms buffer
+            const shouldContinue = toolWasCalled && 
+                                   (!hasText || accumulatedText.trim().length === 0) &&
+                                   (streamFinished || timeSinceToolResult > 100); // 100ms buffer
             
             if (shouldContinue) {
               if (process.env.NODE_ENV === 'development') {
-                if (continueRequest) {
-                  console.log('[Approach 6] Manual continuation request from user');
-                } else {
-                  console.log('[Approach 6] Tool was called but no text generated.', {
-                    hasText,
-                    accumulatedLength: accumulatedText.length,
-                    streamFinished,
-                    finishReason,
-                    timeSinceToolResult,
-                  });
-                }
+                console.log('[Approach 6] Tool was called but no text generated.', {
+                  hasText,
+                  accumulatedLength: accumulatedText.length,
+                  streamFinished,
+                  finishReason,
+                  timeSinceToolResult,
+                });
                 console.log('[Approach 6] Making continuation request...');
               }
               
@@ -261,8 +254,6 @@ export async function POST(req: NextRequest) {
               // If we have tool results, include ALL of them explicitly in the prompt
               // This matches production behavior where tool results aren't in conversation history
               // CRITICAL: Handle multiple tool calls - include all results, not just the first one
-              // Note: For manual continuation requests (continueRequest=true), toolCallHistory might be empty
-              // because it's a new request, but we still want to continue
               const completedToolCalls = toolCallHistory.filter(tc => tc.output !== null);
               if (completedToolCalls.length > 0) {
                 if (completedToolCalls.length === 1) {
@@ -284,12 +275,6 @@ export async function POST(req: NextRequest) {
                     `Address all the verifications in your response. ` +
                     `Do not output any XML, tool call structures, or reference previous tool calls - just respond naturally to guide the student.`;
                 }
-              } else if (continueRequest) {
-                // Manual continuation request but no tool call history (new request)
-                // Still prompt to continue based on the conversation context
-                continuationPrompt = `Please continue the conversation and guide the student with Socratic questions. ` +
-                  `The student is waiting for your response. ` +
-                  `Do not output any XML, tool call structures, or reference previous tool calls - just respond naturally to guide the student.`;
               }
               
               const continuationMessages = [
