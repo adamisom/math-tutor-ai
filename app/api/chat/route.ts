@@ -251,13 +251,30 @@ export async function POST(req: NextRequest) {
               // In production, tool results wouldn't be in conversation history, so we include them explicitly here
               let continuationPrompt = 'Please continue the conversation and guide the student with Socratic questions.';
               
-              // If we have tool results, include them explicitly in the prompt
+              // If we have tool results, include ALL of them explicitly in the prompt
               // This matches production behavior where tool results aren't in conversation history
-              if (toolCallHistory.length > 0 && toolCallHistory[0].output !== null) {
-                const toolResult = toolCallHistory[0].output as { is_correct?: boolean; verification_steps?: string };
-                continuationPrompt = `The verification tool was called and returned: ${JSON.stringify(toolResult)}. ` +
-                  `Please respond to the student based on this verification result. Guide them with Socratic questions. ` +
-                  `Do not output any XML, tool call structures, or reference previous tool calls - just respond naturally to guide the student.`;
+              // CRITICAL: Handle multiple tool calls - include all results, not just the first one
+              const completedToolCalls = toolCallHistory.filter(tc => tc.output !== null);
+              if (completedToolCalls.length > 0) {
+                if (completedToolCalls.length === 1) {
+                  // Single tool call - simple format
+                  const toolResult = completedToolCalls[0].output as { is_correct?: boolean; is_valid?: boolean; verification_steps?: string; explanation?: string };
+                  continuationPrompt = `The verification tool (${completedToolCalls[0].toolName}) was called and returned: ${JSON.stringify(toolResult)}. ` +
+                    `Please respond to the student based on this verification result. Guide them with Socratic questions. ` +
+                    `Do not output any XML, tool call structures, or reference previous tool calls - just respond naturally to guide the student.`;
+                } else {
+                  // Multiple tool calls - include all results
+                  const toolResultsSummary = completedToolCalls.map(tc => {
+                    const result = tc.output as { is_correct?: boolean; is_valid?: boolean; verification_steps?: string; explanation?: string };
+                    return `${tc.toolName}: ${JSON.stringify(result)}`;
+                  }).join('\n');
+                  
+                  continuationPrompt = `Multiple verification tools were called (${completedToolCalls.length} total). ` +
+                    `Here are all the tool results:\n${toolResultsSummary}\n\n` +
+                    `Please respond to the student based on ALL of these verification results. Guide them with Socratic questions. ` +
+                    `Address all the verifications in your response. ` +
+                    `Do not output any XML, tool call structures, or reference previous tool calls - just respond naturally to guide the student.`;
+                }
               }
               
               const continuationMessages = [

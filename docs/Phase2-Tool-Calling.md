@@ -162,6 +162,7 @@ Claude consistently stops generating text after tool calls, despite explicit con
 **Current Workaround:** Approach 6 (Explicit Continuation Message)
 - The system detects when a tool was called but no text follows
 - Automatically makes a continuation request to force response generation
+- **Enhanced for multiple tool calls:** All tool results are included in the continuation prompt, not just the first one
 - This is a workaround for Claude's unexpected behavior
 
 **Possible Causes:**
@@ -179,10 +180,30 @@ Claude consistently stops generating text after tool calls, despite explicit con
    - **Check:** Server logs for `[Tool Result]` errors
    - **Solution:** Verify tool implementation, check nerdamer compatibility
 
+**Multiple Tool Calls in Sequence:**
+- **Issue:** When Claude makes multiple tool calls (e.g., verifying multiple algebraic steps), it may stop responding after all tool calls complete
+- **Current Fix:** Approach 6 now includes ALL tool results in the continuation prompt, not just the first one
+- **How it works:** The continuation prompt explicitly lists all tool results and instructs Claude to address all of them
+- **Monitoring:** Check server logs for `[Approach 6]` to see if continuation was triggered
+
+**Potential Client-Side Workaround (Future Enhancement):**
+- **Problem:** Claude may stop responding after tool calls, leaving the input box enabled but no response
+- **Proposed Solution:** Client-side detection that:
+  1. Monitors if Claude mentioned needing to verify something (e.g., "Let me check that...")
+  2. Detects when input box becomes enabled (meaning Claude stopped thinking)
+  3. If no response followed after verification mention, automatically trigger a continuation request
+  4. This would be a fallback safety net if Approach 6 doesn't catch all cases
+- **Implementation Notes:**
+  - Would require client-side state tracking of "verification mentioned" vs "response received"
+  - Could poll every few seconds to check if input is enabled but no new messages
+  - Would need to distinguish between "Claude finished responding" vs "Claude stopped mid-response"
+  - **Status:** Not yet implemented - documented as future troubleshooting enhancement
+
 **Debugging:**
 - Check server console for `[Tool Call]` and `[Tool Result]` logs
 - Check for `[Approach 6]` logs showing continuation request
 - Check browser console for fetch/streaming errors
+- **For multiple tool calls:** Check if all tool results are included in the continuation prompt logs
 
 ### Tool Calls Not Appearing in Conversation
 
