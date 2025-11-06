@@ -33,6 +33,8 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const stillThinkingStartTimeRef = useRef<number | null>(null);
   const [showKeepThinking, setShowKeepThinking] = useState(false);
+  const keepThinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLoadingStopTimeRef = useRef<number | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -136,21 +138,73 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     }
   }, [isLoading, showStillThinking]);
 
-  // Check if "Keep thinking" button should be shown
-  // Show it when: not loading, last message is from assistant, and contains tool call markers
+  // Track when loading stops to time the "Keep thinking" button
   useEffect(() => {
-    if (!isLoading && messages.length > 0) {
+    if (!isLoading && lastLoadingStopTimeRef.current === null) {
+      // Loading just stopped - record the time
+      lastLoadingStopTimeRef.current = Date.now();
+    } else if (isLoading) {
+      // Loading started - reset the timer
+      lastLoadingStopTimeRef.current = null;
+      if (keepThinkingTimerRef.current) {
+        clearTimeout(keepThinkingTimerRef.current);
+        keepThinkingTimerRef.current = null;
+      }
+      setShowKeepThinking(false);
+    }
+  }, [isLoading]);
+
+  // Check if "Keep thinking" button should be shown
+  // Show it 5 seconds after loading stops IF last message is from assistant and contains tool call markers
+  useEffect(() => {
+    // Clear any existing timer
+    if (keepThinkingTimerRef.current) {
+      clearTimeout(keepThinkingTimerRef.current);
+      keepThinkingTimerRef.current = null;
+    }
+
+    if (!isLoading && messages.length > 0 && lastLoadingStopTimeRef.current !== null) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.role === 'assistant') {
         const hasToolCalls = lastMessage.content.includes(TOOL_CALL_MARKERS.START) || 
                            lastMessage.content.includes(TOOL_CALL_MARKERS.RESULT_START);
-        setShowKeepThinking(hasToolCalls);
+        
+        if (hasToolCalls) {
+          // Calculate time elapsed since loading stopped
+          const elapsed = Date.now() - lastLoadingStopTimeRef.current;
+          const delay = 5000; // 5 seconds
+          
+          if (elapsed >= delay) {
+            // Already past 5 seconds, show immediately
+            setShowKeepThinking(true);
+          } else {
+            // Show after remaining time
+            const remainingTime = delay - elapsed;
+            keepThinkingTimerRef.current = setTimeout(() => {
+              setShowKeepThinking(true);
+              keepThinkingTimerRef.current = null;
+            }, remainingTime);
+          }
+        } else {
+          // No tool calls, don't show
+          setShowKeepThinking(false);
+        }
       } else {
+        // Last message is from user, don't show
         setShowKeepThinking(false);
       }
     } else {
+      // Loading or no messages, don't show
       setShowKeepThinking(false);
     }
+
+    // Cleanup
+    return () => {
+      if (keepThinkingTimerRef.current) {
+        clearTimeout(keepThinkingTimerRef.current);
+        keepThinkingTimerRef.current = null;
+      }
+    };
   }, [messages, isLoading]);
 
   // Save conversation changes
@@ -385,6 +439,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     setHasUnsavedChanges(false);
     setError(null);
     setShowStillThinking(false);
+    setShowKeepThinking(false);
     if (thinkingTimerRef.current) {
       clearTimeout(thinkingTimerRef.current);
       thinkingTimerRef.current = null;
@@ -393,6 +448,11 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
+    if (keepThinkingTimerRef.current) {
+      clearTimeout(keepThinkingTimerRef.current);
+      keepThinkingTimerRef.current = null;
+    }
+    lastLoadingStopTimeRef.current = null;
   };
 
   // Clear all localStorage data (developer mode only)
