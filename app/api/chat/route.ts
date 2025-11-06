@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         // This prevents markers from being included in conversation history sent to Claude
         const cleanedContent = msg.role === 'assistant' ? stripToolCallMarkers(content) : content;
         return {
-          role: msg.role as 'user' | 'assistant' | 'system',
+        role: msg.role as 'user' | 'assistant' | 'system',
           content: cleanedContent,
         };
       })
@@ -148,6 +148,13 @@ export async function POST(req: NextRequest) {
       let streamFinished = false;
       let finishReason: string | undefined;
       
+      // Track tool calls and results for continuation request
+      const toolCallHistory: Array<{
+        toolName: string;
+        input: Record<string, unknown>;
+        output: unknown;
+      }> = [];
+      
       // Create a custom stream that monitors and forwards chunks
       const encoder = new TextEncoder();
       const monitoredStream = new ReadableStream({
@@ -169,6 +176,13 @@ export async function POST(req: NextRequest) {
                   console.log('[Stream Monitor] Tool call detected:', chunk.toolName, toolCallId ? `(id: ${toolCallId})` : '');
                 }
                 
+                // Store tool call for continuation request
+                toolCallHistory.push({
+                  toolName: chunk.toolName,
+                  input: toolInput,
+                  output: null, // Will be filled when result arrives
+                });
+                
                 // Handle tool call injection (dev mode only)
                 toolInjector.handleToolCall(chunk.toolName, toolInput, toolCallId);
               } else if (chunk.type === 'tool-result') {
@@ -180,13 +194,21 @@ export async function POST(req: NextRequest) {
                   console.log('[Stream Monitor] Tool result received:', chunk.toolName, toolCallId ? `(id: ${toolCallId})` : '');
                 }
                 
+                // Update the most recent tool call with its result
+                if (toolCallHistory.length > 0) {
+                  const lastToolCall = toolCallHistory[toolCallHistory.length - 1];
+                  if (lastToolCall.output === null) {
+                    lastToolCall.output = toolOutput;
+                  }
+                }
+                
                 // Handle tool result injection (dev mode only)
                 toolInjector.handleToolResult(chunk.toolName, toolOutput, toolCallId);
               } else if (chunk.type === 'text-delta') {
                 hasText = true;
                 accumulatedText += chunk.text;
                 
-                // Filter out any XML-like tool call structures Claude might output
+                // Filter out any XML-like tool call structures (safety net - shouldn't appear with fixed prompt)
                 const filteredText = filterToolCallXml(chunk.text);
                 
                 // Only forward if there's content after filtering
@@ -225,11 +247,24 @@ export async function POST(req: NextRequest) {
               }
               
               // Approach 6: Make continuation request and append to stream
+              // Build continuation message with explicit tool results (not just "results above")
+              // In production, tool results wouldn't be in conversation history, so we include them explicitly here
+              let continuationPrompt = 'Please continue the conversation and guide the student with Socratic questions.';
+              
+              // If we have tool results, include them explicitly in the prompt
+              // This matches production behavior where tool results aren't in conversation history
+              if (toolCallHistory.length > 0 && toolCallHistory[0].output !== null) {
+                const toolResult = toolCallHistory[0].output as { is_correct?: boolean; verification_steps?: string };
+                continuationPrompt = `The verification tool was called and returned: ${JSON.stringify(toolResult)}. ` +
+                  `Please respond to the student based on this verification result. Guide them with Socratic questions. ` +
+                  `Do not output any XML, tool call structures, or reference previous tool calls - just respond naturally to guide the student.`;
+              }
+              
               const continuationMessages = [
                 ...validMessages,
                 {
                   role: 'user' as const,
-                  content: 'Please respond to the student based on the tool verification results above. Guide them with Socratic questions.',
+                  content: continuationPrompt,
                 },
               ];
               
@@ -248,7 +283,7 @@ export async function POST(req: NextRequest) {
               let continuationTextCount = 0;
               for await (const chunk of continuationResult.fullStream) {
                 if (chunk.type === 'text-delta') {
-                  // Filter out any XML-like tool call structures
+                  // Filter out any XML-like tool call structures (safety net - shouldn't appear with fixed prompt)
                   const filteredText = filterToolCallXml(chunk.text);
                   continuationTextCount += filteredText.length;
                   

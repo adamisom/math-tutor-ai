@@ -17,6 +17,8 @@ export const TOOL_CALL_MARKERS = {
  * Filter out raw XML-like tool call structures from text
  * Claude sometimes outputs these as part of its text stream (e.g., <computer><verify_equation_solution>...</verify_equation_solution></computer>)
  * This function removes them before forwarding to the client
+ * 
+ * Note: XML blocks can span multiple chunks, so this should be called on accumulated text, not individual chunks
  */
 export function filterToolCallXml(text: string): string {
   let filtered = text;
@@ -29,9 +31,14 @@ export function filterToolCallXml(text: string): string {
   const functionCallsPattern = /<function_calls>[\s\S]*?<\/function_calls>/gi;
   filtered = filtered.replace(functionCallsPattern, '');
   
-  // Remove <invoke>...</invoke> blocks
-  const invokePattern = /<invoke[\s\S]*?<\/invoke>/gi;
+  // Remove <invoke>...</invoke> blocks (with attributes like name="...")
+  // Match <invoke ...>...</invoke> with any attributes
+  const invokePattern = /<invoke[^>]*>[\s\S]*?<\/invoke>/gi;
   filtered = filtered.replace(invokePattern, '');
+  
+  // Remove <parameter>...</parameter> blocks (often appear inside invoke blocks, but catch standalone ones)
+  const parameterPattern = /<parameter[^>]*>[\s\S]*?<\/parameter>/gi;
+  filtered = filtered.replace(parameterPattern, '');
   
   // Remove specific tool call blocks (e.g., <verify_equation_solution>...</verify_equation_solution>)
   // Match any <tool_name>...</tool_name> where tool_name matches our math tools
@@ -45,17 +52,24 @@ export function filterToolCallXml(text: string): string {
   ];
   
   for (const toolName of toolNames) {
-    const toolPattern = new RegExp(`<${toolName}[\\s\\S]*?<\\/${toolName}>`, 'gi');
+    // Match with or without attributes
+    const toolPattern = new RegExp(`<${toolName}[^>]*>[\\s\\S]*?<\\/${toolName}>`, 'gi');
     filtered = filtered.replace(toolPattern, '');
   }
   
   // Clean up any leftover XML-like tags that might be tool-related
   // This is a catch-all for any <tag>...</tag> that looks like a tool call
-  const genericToolPattern = /<(equation|variable|solution|expression|derivative|integral|step|calculation)[^>]*>[\s\S]*?<\/\1>/gi;
+  const genericToolPattern = /<(equation|variable|solution|expression|derivative|integral|step|calculation|proposed_solution)[^>]*>[\s\S]*?<\/\1>/gi;
   filtered = filtered.replace(genericToolPattern, '');
+  
+  // Clean up any incomplete opening tags that might be left (from chunks that were split mid-tag)
+  // Remove any <tag_name followed by whitespace or newline (incomplete tag)
+  const incompleteTagPattern = /<[a-z_]+[\s\n]*$/gi;
+  filtered = filtered.replace(incompleteTagPattern, '');
   
   return filtered;
 }
+
 
 /**
  * Strip tool call markers from message content
