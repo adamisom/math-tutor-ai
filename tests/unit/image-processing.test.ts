@@ -4,7 +4,7 @@
  * Tests image validation, compression, and base64 conversion
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { validateImage, compressImage, fileToBase64, processImage } from '../../app/lib/image-processing';
 
 // Mock Image and FileReader APIs
