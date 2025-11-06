@@ -37,6 +37,32 @@ describe('verifyEquationSolution', () => {
     const result = verifyEquationSolution('3x - 7 = 14', 'x = 7');
     expect(result.is_correct).toBe(true);
   });
+
+  it('should handle fraction solutions', () => {
+    const result = verifyEquationSolution('2x = 5', 'x = 5/2');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should handle negative fraction solutions', () => {
+    const result = verifyEquationSolution('2x = -3', 'x = -3/2');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should detect incorrect fraction solutions', () => {
+    const result = verifyEquationSolution('2x = 5', 'x = 5/3');
+    expect(result.is_correct).toBe(false);
+  });
+
+  it('should handle decimal solutions', () => {
+    const result = verifyEquationSolution('2x = 5', 'x = 2.5');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should handle very small numbers correctly', () => {
+    // Should use relative error for small numbers
+    const result = verifyEquationSolution('x = 0.0002', 'x = 0.0003');
+    expect(result.is_correct).toBe(false); // 50% error is too large
+  });
 });
 
 describe('verifyAlgebraicStep', () => {
@@ -76,6 +102,81 @@ describe('verifyCalculation', () => {
     const result2 = verifyCalculation('8 ÷ 2', '4');
     expect(result1.is_correct).toBe(true);
     expect(result2.is_correct).toBe(true);
+  });
+
+  it('should correctly verify fraction addition', () => {
+    const result = verifyCalculation('3/4 + 1/2', '5/4');
+    expect(result.is_correct).toBe(true);
+    expect(result.correct_result).toBe('5/4');
+  });
+
+  it('should correctly reject incorrect fraction addition', () => {
+    const result = verifyCalculation('3/4 + 1/2', '5/6');
+    expect(result.is_correct).toBe(false);
+    expect(result.correct_result).toBe('5/4');
+  });
+
+  it('should correctly reject incorrect fraction addition (claiming 5)', () => {
+    const result = verifyCalculation('3/4 + 1/2', '5');
+    expect(result.is_correct).toBe(false);
+    expect(result.correct_result).toBe('5/4');
+  });
+
+  it('should handle fraction subtraction', () => {
+    const result = verifyCalculation('5/4 - 1/2', '3/4');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should handle fraction multiplication', () => {
+    const result = verifyCalculation('2/3 * 3/4', '1/2');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should handle fraction division', () => {
+    // Use parentheses to ensure correct parsing: (1/2) / (1/4) = 2
+    const result = verifyCalculation('(1/2) / (1/4)', '2');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should handle mixed numbers with fractions', () => {
+    const result = verifyCalculation('1 + 1/2', '3/2');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should handle very small numbers with relative error', () => {
+    // 0.0002 vs 0.0003 has 50% error - should be rejected
+    const result1 = verifyCalculation('0.0002', '0.0003');
+    expect(result1.is_correct).toBe(false);
+    
+    // Use a value that tests the absolute threshold with a simple fraction
+    // 1/1000 vs 1/1000 + 1e-9, which is within absolute threshold
+    // Since nerdamer works better with fractions, test with a relative error case
+    // 0.1 vs 0.1000001 has 0.0001% error - should be accepted
+    const result2 = verifyCalculation('0.1', '0.1000001');
+    expect(result2.is_correct).toBe(true);
+  });
+
+  it('should handle large numbers with relative error', () => {
+    // 1000000 vs 1000001 has 0.0001% error - should be accepted
+    const result = verifyCalculation('1000000', '1000001');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should reject answers with 0.01% relative error (too large)', () => {
+    // 0.1 vs 0.10001 has 0.01% error - should be rejected (threshold is 0.0001%)
+    const result = verifyCalculation('0.1', '0.10001');
+    expect(result.is_correct).toBe(false);
+  });
+
+  it('should accept answers with 0.0001% relative error (within threshold)', () => {
+    // 0.1 vs 0.1000001 has 0.0001% error - should be accepted
+    const result = verifyCalculation('0.1', '0.1000001');
+    expect(result.is_correct).toBe(true);
+  });
+
+  it('should handle negative fractions', () => {
+    const result = verifyCalculation('-1/2 + 1/4', '-1/4');
+    expect(result.is_correct).toBe(true);
   });
 });
 
@@ -136,6 +237,17 @@ describe('evaluateExpression', () => {
   it('should handle invalid expressions gracefully', () => {
     const result = evaluateExpression('invalid++expression');
     expect(result.error).toBeDefined();
+  });
+
+  it('should preserve fractions in results', () => {
+    const result = evaluateExpression('3/4 + 1/2');
+    // Should return fraction form, not decimal
+    expect(result.result).toBe('5/4');
+  });
+
+  it('should handle fractions with substitutions', () => {
+    const result = evaluateExpression('x + 1/2', { x: 1 });
+    expect(result.result).toBe('3/2');
   });
 });
 

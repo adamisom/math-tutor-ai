@@ -15,7 +15,98 @@ require('nerdamer/Algebra');
 require('nerdamer/Solve');
 
 /**
+ * Helper function to check if two nerdamer expressions are equivalent
+ * Uses nerdamer to subtract and check if difference is zero
+ * This properly handles fractions, decimals, and symbolic expressions
+ * 
+ * For numeric comparisons, uses relative error tolerance to handle both
+ * very small and very large numbers correctly.
+ */
+function areExpressionsEquivalent(
+  expr1: string | nerdamer.Expression,
+  expr2: string | nerdamer.Expression
+): boolean {
+  try {
+    const expr1Obj = typeof expr1 === 'string' ? nerdamer(expr1) : expr1;
+    const expr2Obj = typeof expr2 === 'string' ? nerdamer(expr2) : expr2;
+    
+    const difference = nerdamer(`(${expr1Obj}) - (${expr2Obj})`);
+    const diffValue = difference.evaluate();
+    const diffStr = diffValue.toString();
+    
+    // Check if difference is exactly zero (string comparison handles fractions)
+    if (diffStr === '0' || diffStr === '-0') {
+      return true;
+    }
+    
+    // Fallback: numeric comparison for floating point precision issues
+    // Use relative error tolerance instead of absolute to handle both small and large numbers
+    try {
+      const diffNumeric = parseFloat(diffStr);
+      if (isNaN(diffNumeric)) {
+        // Not numeric, can't use relative error - they're not equivalent
+        return false;
+      }
+      
+      // If difference is exactly zero (numeric), they're equivalent
+      if (Math.abs(diffNumeric) === 0) {
+        return true;
+      }
+      
+      // Calculate relative error: |diff| / max(|value1|, |value2|)
+      // Use relative error for non-zero values, absolute threshold for near-zero values
+      const val1Numeric = parseFloat(expr1Obj.toString());
+      const val2Numeric = parseFloat(expr2Obj.toString());
+      
+      if (!isNaN(val1Numeric) && !isNaN(val2Numeric)) {
+        const maxAbsValue = Math.max(Math.abs(val1Numeric), Math.abs(val2Numeric));
+        
+        // Use hybrid approach: accept if absolute difference is very small OR relative error is small
+        // This handles both:
+        // - Large numbers: 1000000 vs 1000001 (0.0001% error) ✓
+        // - Small numbers: 0.0002 vs 0.0003 (50% error) ✗, but 0.0002 vs 0.00020001 (tiny absolute diff) ✓
+        // - Very small numbers near zero: use absolute threshold only
+        const absoluteThreshold = 1e-8; // Accept if absolute difference is less than 1e-8 (handles floating point precision)
+        const relativeThreshold = 0.000001; // 0.0001% relative error tolerance (one in a million)
+        
+        if (maxAbsValue < 1e-10) {
+          // Both values are extremely close to zero - use stricter absolute threshold
+          if (Math.abs(diffNumeric) < 1e-10) {
+            return true;
+          }
+        } else {
+          // Calculate relative error for non-zero values
+          const relativeError = Math.abs(diffNumeric) / maxAbsValue;
+          
+          // Accept if EITHER:
+          // 1. Absolute difference is very small (< 1e-8) - handles floating point precision issues
+          // 2. Relative error is very small (< 0.001%) - handles proportional errors
+          if (Math.abs(diffNumeric) < absoluteThreshold || relativeError < relativeThreshold) {
+            return true;
+          }
+        }
+      } else {
+        // One or both values aren't numeric - use absolute threshold as fallback
+        const absoluteThreshold = 1e-10;
+        if (Math.abs(diffNumeric) < absoluteThreshold) {
+          return true;
+        }
+      }
+    } catch {
+      // parseFloat or calculation failed, difference is not numeric (likely symbolic)
+      // If it's not zero as a string, they're not equivalent
+    }
+    
+    return false;
+  } catch {
+    // Comparison failed, assume not equivalent
+    return false;
+  }
+}
+
+/**
  * Verify if a student's solution to an equation is correct
+ * Uses nerdamer for all parsing and comparison to properly handle fractions
  */
 export function verifyEquationSolution(
   equation: string,
@@ -31,8 +122,9 @@ export function verifyEquationSolution(
     const cleanedEquation = equation.trim();
     const cleanedSolution = claimedSolution.trim();
     
-    // Extract variable from solution (e.g., "x = 4" -> "x" and "4")
-    const solutionMatch = cleanedSolution.match(/(\w+)\s*=\s*([\d\.\-\+]+)/);
+    // Extract variable and value from solution using nerdamer-friendly parsing
+    // Handles formats like "x = 4", "x = 5/4", "x = -3/2", "x = 1.25"
+    const solutionMatch = cleanedSolution.match(/(\w+)\s*=\s*(.+)/);
     if (!solutionMatch) {
       return {
         is_correct: false,
@@ -41,13 +133,17 @@ export function verifyEquationSolution(
       };
     }
     
-    const [, variable, value] = solutionMatch;
-    const numericValue = parseFloat(value);
+    const [, variable, valueStr] = solutionMatch;
+    const valueStrCleaned = valueStr.trim();
     
-    if (isNaN(numericValue)) {
+    // Parse the value using nerdamer (handles fractions, decimals, etc.)
+    let valueExpr;
+    try {
+      valueExpr = nerdamer(valueStrCleaned);
+    } catch {
       return {
         is_correct: false,
-        verification_steps: `Could not parse numeric value: ${value}`,
+        verification_steps: `Could not parse solution value: ${valueStrCleaned}. Expected a number or fraction.`,
         error: 'INVALID_VALUE'
       };
     }
@@ -62,37 +158,40 @@ export function verifyEquationSolution(
         const rightExpr = nerdamer(rightSide.trim());
         
         // Use nerdamer's evaluate with substitution object
-        // TypeScript types don't include this, but it works at runtime
+        // Pass the value as a string so nerdamer can handle fractions properly
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const leftEval = (leftExpr.evaluate as any)({ [variable]: numericValue });
+        const leftEval = (leftExpr.evaluate as any)({ [variable]: valueExpr });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rightEval = (rightExpr.evaluate as any)({ [variable]: numericValue });
+        const rightEval = (rightExpr.evaluate as any)({ [variable]: valueExpr });
         
-        const leftValue = parseFloat(leftEval.toString());
-        const rightValue = parseFloat(rightEval.toString());
+        // Compare using nerdamer subtraction (handles fractions properly)
+        const isCorrect = areExpressionsEquivalent(leftEval, rightEval);
         
-        const isCorrect = !isNaN(leftValue) && !isNaN(rightValue) && 
-                         Math.abs(leftValue - rightValue) < 0.0001;
+        const leftValueStr = leftEval.toString();
+        const rightValueStr = rightEval.toString();
         
         return {
           is_correct: isCorrect,
           verification_steps: isCorrect
-            ? `Substituting ${variable} = ${value} into ${cleanedEquation}: ${leftValue} = ${rightValue} ✓ The solution satisfies the equation.`
-            : `Substituting ${variable} = ${value} into ${cleanedEquation}: ${leftValue} ≠ ${rightValue}. The solution does not satisfy the equation.`,
+            ? `Substituting ${variable} = ${valueStrCleaned} into ${cleanedEquation}: ${leftValueStr} = ${rightValueStr} ✓ The solution satisfies the equation.`
+            : `Substituting ${variable} = ${valueStrCleaned} into ${cleanedEquation}: ${leftValueStr} ≠ ${rightValueStr}. The solution does not satisfy the equation.`,
         };
       } else {
         // Not an equation, just evaluate the expression with substitution
         const expr = nerdamer(cleanedEquation);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const evaluated = (expr.evaluate as any)({ [variable]: numericValue });
-        const evalValue = parseFloat(evaluated.toString());
-        const isTrue = !isNaN(evalValue) && Math.abs(evalValue) < 0.0001;
+        const evaluated = (expr.evaluate as any)({ [variable]: valueExpr });
+        
+        // Check if the evaluated expression equals zero (or is approximately zero)
+        const isTrue = areExpressionsEquivalent(evaluated, '0');
+        
+        const evalStr = evaluated.toString();
         
         return {
           is_correct: isTrue,
           verification_steps: isTrue 
-            ? `Substituting ${variable} = ${value} into ${cleanedEquation} gives a true statement.`
-            : `Substituting ${variable} = ${value} into ${cleanedEquation} does not satisfy the equation.`,
+            ? `Substituting ${variable} = ${valueStrCleaned} into ${cleanedEquation} gives ${evalStr}, which is a true statement.`
+            : `Substituting ${variable} = ${valueStrCleaned} into ${cleanedEquation} gives ${evalStr}, which does not satisfy the equation.`,
         };
       }
     } catch (evalError) {
@@ -131,12 +230,9 @@ export function verifyAlgebraicStep(
     const originalSimplified = nerdamer(originalExpression.trim()).toString();
     const resultingSimplified = nerdamer(resultingExpression.trim()).toString();
     
-    // Check if they're mathematically equivalent by comparing the difference
+    // Check if they're mathematically equivalent using nerdamer
     try {
-      const difference = nerdamer(`(${originalSimplified}) - (${resultingSimplified})`);
-      const diffValue = difference.evaluate();
-      const isEquivalent = diffValue.toString() === '0' || 
-                          Math.abs(parseFloat(diffValue.toString())) < 0.0001;
+      const isEquivalent = areExpressionsEquivalent(originalSimplified, resultingSimplified);
       
       if (isEquivalent) {
         return {
@@ -200,39 +296,63 @@ export function verifyCalculation(
       .replace(/\s+/g, '')
       .trim();
     
-    const claimed = parseFloat(claimedResult.trim());
+    // Evaluate the expression using nerdamer
+    const result = nerdamer(cleanedExpression).evaluate();
+    const correctResultStr = result.toString();
     
-    if (isNaN(claimed)) {
+    // Parse the claimed result using nerdamer (handles fractions properly)
+    let claimedExpr;
+    try {
+      const cleanedClaimed = claimedResult.trim().replace(/\s+/g, '');
+      claimedExpr = nerdamer(cleanedClaimed);
+    } catch {
       return {
         is_correct: false,
-        correct_result: '',
+        correct_result: correctResultStr,
         explanation: `Could not parse claimed result: ${claimedResult}`,
         error: 'INVALID_FORMAT'
       };
     }
     
-    // Evaluate the expression
-    const result = nerdamer(cleanedExpression).evaluate();
-    const correctValue = parseFloat(result.toString());
-    
-    if (isNaN(correctValue)) {
+    // Compare using nerdamer (handles fractions, decimals, and mixed numbers correctly)
+    try {
+      const isZero = areExpressionsEquivalent(result, claimedExpr);
+      
       return {
-        is_correct: false,
-        correct_result: result.toString(),
-        explanation: `Could not evaluate expression: ${expression}`,
-        error: 'EVALUATION_ERROR'
+        is_correct: isZero,
+        correct_result: correctResultStr,
+        explanation: isZero
+          ? `The calculation ${expression} = ${correctResultStr} is correct.`
+          : `The calculation ${expression} = ${claimedResult} is incorrect. The correct answer is ${correctResultStr}.`,
       };
+    } catch {
+      // Comparison failed, try numeric comparison as fallback
+      try {
+        const correctNumeric = parseFloat(result.evaluate().toString());
+        const claimedNumeric = parseFloat(claimedExpr.evaluate().toString());
+        
+        if (isNaN(correctNumeric) || isNaN(claimedNumeric)) {
+          throw new Error('Numeric comparison failed');
+        }
+        
+        const isCorrect = Math.abs(correctNumeric - claimedNumeric) < 0.0001;
+        
+        return {
+          is_correct: isCorrect,
+          correct_result: correctResultStr,
+          explanation: isCorrect
+            ? `The calculation ${expression} = ${correctResultStr} is correct.`
+            : `The calculation ${expression} = ${claimedResult} is incorrect. The correct answer is ${correctResultStr}.`,
+        };
+      } catch {
+        return {
+          is_correct: false,
+          correct_result: correctResultStr,
+          explanation: `The calculation ${expression} = ${claimedResult} is incorrect. The correct answer is ${correctResultStr}.`,
+          error: 'COMPARISON_ERROR'
+        };
+      }
     }
-    
-    const isCorrect = Math.abs(correctValue - claimed) < 0.0001;
-    
-    return {
-      is_correct: isCorrect,
-      correct_result: correctValue.toString(),
-      explanation: isCorrect
-        ? `The calculation ${expression} = ${correctValue} is correct.`
-        : `The calculation ${expression} = ${claimed} is incorrect. The correct answer is ${correctValue}.`,
-    };
   } catch (error) {
     return {
       is_correct: false,
@@ -270,12 +390,9 @@ export function verifyDerivative(
     const claimedSimplified = nerdamer(cleanedClaimed).toString();
     const derivativeSimplified2 = derivative.toString();
     
-    // Check if they're equivalent by evaluating the difference
+    // Check if they're equivalent using nerdamer
     try {
-      const difference = nerdamer(`(${claimedSimplified}) - (${derivativeSimplified2})`);
-      const diffValue = difference.evaluate();
-      const isEquivalent = diffValue.toString() === '0' || 
-                          Math.abs(parseFloat(diffValue.toString())) < 0.0001;
+      const isEquivalent = areExpressionsEquivalent(claimedSimplified, derivativeSimplified2);
       
       return {
         is_correct: isEquivalent,
@@ -339,11 +456,8 @@ export function verifyIntegral(
       const derivativeSimplified = derivativeOfClaimed.toString();
       const originalSimplified = nerdamer(cleanedFunction).toString();
       
-      // Check if derivatives match
-      const derivativeCheck = nerdamer(`(${derivativeSimplified}) - (${originalSimplified})`);
-      const diffValue = derivativeCheck.evaluate();
-      const derivativeMatches = diffValue.toString() === '0' || 
-                                Math.abs(parseFloat(diffValue.toString())) < 0.0001;
+      // Check if derivatives match using nerdamer
+      const derivativeMatches = areExpressionsEquivalent(derivativeSimplified, originalSimplified);
       
       if (derivativeMatches) {
         return {
@@ -361,10 +475,7 @@ export function verifyIntegral(
     const integralSimplified2 = nerdamer(integralWithoutC).toString();
     
     try {
-      const difference = nerdamer(`(${claimedSimplified}) - (${integralSimplified2})`);
-      const diffValue = difference.evaluate();
-      const isEquivalent = diffValue.toString() === '0' || 
-                          Math.abs(parseFloat(diffValue.toString())) < 0.0001;
+      const isEquivalent = areExpressionsEquivalent(claimedSimplified, integralSimplified2);
       
       return {
         is_correct: isEquivalent,
@@ -434,28 +545,21 @@ export function evaluateExpression(
       };
     }
     
-    // Try to evaluate numerically first (with substitutions if provided)
+    // Try to evaluate (with substitutions if provided)
     if (substitutions) {
       try {
         // Apply substitutions using evaluate with substitution object
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const numericResult = (expr.evaluate as any)(substitutions);
-        const numericValue = parseFloat(numericResult.toString());
+        const result = (expr.evaluate as any)(substitutions);
+        const resultStr = result.toString();
         
-        if (!isNaN(numericValue)) {
-          return {
-            result: numericValue.toString(),
-            explanation: `Evaluating ${expression} with ${JSON.stringify(substitutions)} gives ${numericValue}.`,
-          };
-        }
-        // If evaluation succeeded but result is NaN, fall through to symbolic
-        const simplified = expr.toString();
+        // Return the result as-is (preserves fractions)
         return {
-          result: simplified,
-          explanation: `The expression ${expression} with ${JSON.stringify(substitutions)} simplifies to ${simplified}.`,
+          result: resultStr,
+          explanation: `Evaluating ${expression} with ${JSON.stringify(substitutions)} gives ${resultStr}.`,
         };
       } catch {
-        // Not a numeric expression with substitutions, try symbolic
+        // Evaluation failed, return symbolic form
         const simplified = expr.toString();
         return {
           result: simplified,
@@ -474,27 +578,24 @@ export function evaluateExpression(
           explanation: `The expression ${expression} simplifies to ${simplified}.`,
         };
       } else {
-        // Pure numeric expression - try to evaluate
+        // Pure numeric expression - evaluate using nerdamer
         try {
-          const numericResult = expr.evaluate();
-          const numericValue = parseFloat(numericResult.toString());
+          const result = expr.evaluate();
+          const resultStr = result.toString();
           
-          if (!isNaN(numericValue)) {
-            return {
-              result: numericValue.toString(),
-              explanation: `Evaluating ${expression} gives ${numericValue}.`,
-            };
-          }
+          // Return result as-is (preserves fractions like "5/4" instead of converting to "1.25")
+          return {
+            result: resultStr,
+            explanation: `Evaluating ${expression} gives ${resultStr}.`,
+          };
         } catch {
           // Evaluation failed, return symbolic form
+          const simplified = expr.toString();
+          return {
+            result: simplified,
+            explanation: `The expression ${expression} simplifies to ${simplified}.`,
+          };
         }
-        
-        // Fallback: return symbolic form
-        const simplified = expr.toString();
-        return {
-          result: simplified,
-          explanation: `The expression ${expression} simplifies to ${simplified}.`,
-        };
       }
     }
   } catch (error) {
