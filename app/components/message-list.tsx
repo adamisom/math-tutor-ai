@@ -177,7 +177,7 @@ function parseBoldMarkdown(text: string): React.ReactNode[] {
 /**
  * Component that renders content with both LaTeX and bold markdown support
  */
-function MathRendererWithBold({ content, enableLaTeX }: { content: string; enableLaTeX: boolean }) {
+function MathRendererWithBold({ content }: { content: string }) {
   // First render LaTeX, which splits content into parts
   // Then we need to apply bold markdown to text parts
   // For simplicity, we'll parse bold markdown on the full content first,

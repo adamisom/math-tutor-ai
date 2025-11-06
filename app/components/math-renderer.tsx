@@ -27,8 +27,7 @@ export function MathRenderer({ content, enableLaTeX = true }: MathRendererProps)
 
   // Split content into parts: text and math expressions
   const parts: Array<{ type: 'text' | 'inline' | 'block'; content: string }> = [];
-  let remaining = content;
-  let lastIndex = 0;
+  const remaining = content;
 
   // First, find all block math ($$...$$) - these take priority
   const blockMathRegex = /\$\$([^$]+)\$\$/g;
