@@ -720,7 +720,12 @@ export default function TestPage() {
   });
   const [savingResult, setSavingResult] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
-  const [isClient] = useState(() => typeof window !== 'undefined');
+  const [isClient, setIsClient] = useState(false);
+
+  // Set isClient to true after mount to avoid hydration mismatch
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Save test results to localStorage whenever they change (only on client)
   useEffect(() => {
