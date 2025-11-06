@@ -3,6 +3,7 @@
 import React from 'react';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
+import { parseLaTeX } from '../lib/latex-parser';
 
 interface MathRendererProps {
   content: string;
@@ -25,84 +26,11 @@ export function MathRenderer({ content, enableLaTeX = true }: MathRendererProps)
     return <span>{content}</span>;
   }
 
-  // Split content into parts: text and math expressions
-  const parts: Array<{ type: 'text' | 'inline' | 'block'; content: string }> = [];
-  const remaining = content;
-
-  // First, find all block math ($$...$$) - these take priority
-  const blockMathRegex = /\$\$([^$]+)\$\$/g;
-  const blockMatches: Array<{ start: number; end: number; content: string }> = [];
-  let blockMatch: RegExpExecArray | null;
-  
-  while ((blockMatch = blockMathRegex.exec(remaining)) !== null) {
-    blockMatches.push({
-      start: blockMatch.index,
-      end: blockMatch.index + blockMatch[0].length,
-      content: blockMatch[1],
-    });
-  }
-
-  // Then find inline math ($...$) - but not inside block math
-  const inlineMathRegex = /\$([^$\n]+?)\$/g;
-  const inlineMatches: Array<{ start: number; end: number; content: string }> = [];
-  let inlineMatch: RegExpExecArray | null;
-  
-  while ((inlineMatch = inlineMathRegex.exec(remaining)) !== null) {
-    // TypeScript knows inlineMatch is not null here, but we need to assert it
-    const match = inlineMatch;
-    
-    // Check if this inline math is inside a block math
-    const isInsideBlock = blockMatches.some(
-      block => match.index >= block.start && match.index < block.end
-    );
-    
-    // Also check for escaped dollars (\$)
-    const beforeMatch = remaining.substring(Math.max(0, match.index - 1), match.index);
-    const isEscaped = beforeMatch === '\\';
-    
-    if (!isInsideBlock && !isEscaped) {
-      inlineMatches.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        content: match[1],
-      });
-    }
-  }
-
-  // Combine and sort all matches
-  const allMatches = [
-    ...blockMatches.map(m => ({ ...m, type: 'block' as const })),
-    ...inlineMatches.map(m => ({ ...m, type: 'inline' as const })),
-  ].sort((a, b) => a.start - b.start);
-
-  // Build parts array
-  let currentIndex = 0;
-  
-  for (const match of allMatches) {
-    // Add text before match
-    if (match.start > currentIndex) {
-      const textContent = remaining.substring(currentIndex, match.start);
-      if (textContent) {
-        parts.push({ type: 'text', content: textContent });
-      }
-    }
-    
-    // Add math expression
-    parts.push({ type: match.type, content: match.content });
-    
-    currentIndex = match.end;
-  }
-  
-  // Add remaining text
-  if (currentIndex < remaining.length) {
-    const textContent = remaining.substring(currentIndex);
-    if (textContent) {
-      parts.push({ type: 'text', content: textContent });
-    }
-  }
+  // Parse LaTeX expressions
+  const parts = parseLaTeX(content);
   
   // If no math found, return original text
-  if (parts.length === 0) {
+  if (parts.length === 0 || (parts.length === 1 && parts[0].type === 'text')) {
     return <span>{content}</span>;
   }
 
