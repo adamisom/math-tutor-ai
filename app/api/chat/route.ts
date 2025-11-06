@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 import { getSocraticPrompt, extractProblemFromMessages } from '../../lib/prompts';
 import { mathVerificationTools } from '../../lib/math-tools';
 import { manageAttemptTracking } from '../../lib/attempt-tracking';
-import { ToolCallInjector, stripToolCallMarkers } from '../../lib/tool-call-injection';
+import { ToolCallInjector, stripToolCallMarkers, filterToolCallXml } from '../../lib/tool-call-injection';
 
 // Shared store for tool calls in this request (for testing/logging)
 // Note: Currently unused, but kept for potential future tool call logging/injection
@@ -185,8 +185,14 @@ export async function POST(req: NextRequest) {
               } else if (chunk.type === 'text-delta') {
                 hasText = true;
                 accumulatedText += chunk.text;
-                // Forward text chunks to client immediately
-                controller.enqueue(encoder.encode(chunk.text));
+                
+                // Filter out any XML-like tool call structures Claude might output
+                const filteredText = filterToolCallXml(chunk.text);
+                
+                // Only forward if there's content after filtering
+                if (filteredText.length > 0) {
+                  controller.enqueue(encoder.encode(filteredText));
+                }
               } else if (chunk.type === 'finish') {
                 streamFinished = true;
                 finishReason = chunk.finishReason;
@@ -242,8 +248,14 @@ export async function POST(req: NextRequest) {
               let continuationTextCount = 0;
               for await (const chunk of continuationResult.fullStream) {
                 if (chunk.type === 'text-delta') {
-                  continuationTextCount += chunk.text.length;
-                  controller.enqueue(encoder.encode(chunk.text));
+                  // Filter out any XML-like tool call structures
+                  const filteredText = filterToolCallXml(chunk.text);
+                  continuationTextCount += filteredText.length;
+                  
+                  // Only forward if there's content after filtering
+                  if (filteredText.length > 0) {
+                    controller.enqueue(encoder.encode(filteredText));
+                  }
                 }
               }
               

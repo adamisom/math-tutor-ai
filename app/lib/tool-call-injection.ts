@@ -14,6 +14,50 @@ export const TOOL_CALL_MARKERS = {
 } as const;
 
 /**
+ * Filter out raw XML-like tool call structures from text
+ * Claude sometimes outputs these as part of its text stream (e.g., <computer><verify_equation_solution>...</verify_equation_solution></computer>)
+ * This function removes them before forwarding to the client
+ */
+export function filterToolCallXml(text: string): string {
+  let filtered = text;
+  
+  // Remove <computer>...</computer> blocks (common format Claude uses)
+  const computerPattern = /<computer>[\s\S]*?<\/computer>/gi;
+  filtered = filtered.replace(computerPattern, '');
+  
+  // Remove <function_calls>...</function_calls> blocks
+  const functionCallsPattern = /<function_calls>[\s\S]*?<\/function_calls>/gi;
+  filtered = filtered.replace(functionCallsPattern, '');
+  
+  // Remove <invoke>...</invoke> blocks
+  const invokePattern = /<invoke[\s\S]*?<\/invoke>/gi;
+  filtered = filtered.replace(invokePattern, '');
+  
+  // Remove specific tool call blocks (e.g., <verify_equation_solution>...</verify_equation_solution>)
+  // Match any <tool_name>...</tool_name> where tool_name matches our math tools
+  const toolNames = [
+    'verify_equation_solution',
+    'verify_calculation',
+    'verify_algebraic_step',
+    'verify_derivative',
+    'verify_integral',
+    'evaluate_expression',
+  ];
+  
+  for (const toolName of toolNames) {
+    const toolPattern = new RegExp(`<${toolName}[\\s\\S]*?<\\/${toolName}>`, 'gi');
+    filtered = filtered.replace(toolPattern, '');
+  }
+  
+  // Clean up any leftover XML-like tags that might be tool-related
+  // This is a catch-all for any <tag>...</tag> that looks like a tool call
+  const genericToolPattern = /<(equation|variable|solution|expression|derivative|integral|step|calculation)[^>]*>[\s\S]*?<\/\1>/gi;
+  filtered = filtered.replace(genericToolPattern, '');
+  
+  return filtered;
+}
+
+/**
  * Strip tool call markers from message content
  * Prevents markers from being included in conversation history sent to Claude
  */
