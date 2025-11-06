@@ -30,6 +30,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const [showStillThinking, setShowStillThinking] = useState(false);
   const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const stillThinkingStartTimeRef = useRef<number | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -69,9 +70,11 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       // Set timer to show "still thinking" after 7 seconds
       thinkingTimerRef.current = setTimeout(() => {
         setShowStillThinking(true);
-        // Hide after 3 seconds
+        stillThinkingStartTimeRef.current = Date.now();
+        // Hide after 3 seconds (but will respect 1 second minimum when loading stops)
         hideTimerRef.current = setTimeout(() => {
           setShowStillThinking(false);
+          stillThinkingStartTimeRef.current = null;
           hideTimerRef.current = null;
         }, 3000);
         thinkingTimerRef.current = null;
@@ -94,13 +97,42 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         clearTimeout(thinkingTimerRef.current);
         thinkingTimerRef.current = null;
       }
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = null;
+      
+      // If "still thinking" is showing, ensure it persists for at least 1 second
+      if (showStillThinking && stillThinkingStartTimeRef.current !== null) {
+        const elapsed = Date.now() - stillThinkingStartTimeRef.current;
+        const minDisplayTime = 1000; // 1 second minimum
+        
+        if (elapsed < minDisplayTime) {
+          // Not enough time has passed, wait for remaining time
+          const remainingTime = minDisplayTime - elapsed;
+          if (hideTimerRef.current) {
+            clearTimeout(hideTimerRef.current);
+          }
+          hideTimerRef.current = setTimeout(() => {
+            setShowStillThinking(false);
+            stillThinkingStartTimeRef.current = null;
+            hideTimerRef.current = null;
+          }, remainingTime);
+        } else {
+          // Already shown for at least 1 second, hide immediately
+          if (hideTimerRef.current) {
+            clearTimeout(hideTimerRef.current);
+          }
+          setShowStillThinking(false);
+          stillThinkingStartTimeRef.current = null;
+          hideTimerRef.current = null;
+        }
+      } else {
+        // Not showing, just clear timers
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = null;
+        }
+        setShowStillThinking(false);
       }
-      setShowStillThinking(false);
     }
-  }, [isLoading]);
+  }, [isLoading, showStillThinking]);
 
   // Save conversation changes
   useEffect(() => {
