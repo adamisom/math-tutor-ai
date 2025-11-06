@@ -11,6 +11,7 @@ import {
   incrementAttemptCount,
   getCurrentProblemFromMessages 
 } from '../lib/attempt-tracking';
+import { extractionHandlers, ExtractionHandlerContext } from '../lib/extraction-handlers';
 
 interface Message {
   id: string;
@@ -221,58 +222,17 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
 
       const extractionResult = await response.json();
 
-      // Handle different extraction types
-      if (extractionResult.type === 'SINGLE_PROBLEM') {
-        // Single problem - start conversation directly
-        const problemText = extractionResult.problems[0] || '';
-        if (problemText) {
-          // Add user message with problem
-          const userMessage: Message = {
-            id: Date.now().toString(),
-            role: 'user',
-            content: problemText,
-          };
-          setMessages([userMessage]);
-          // Start conversation with this problem
-          await handleFormSubmit(new Event('submit') as unknown as React.FormEvent<HTMLFormElement>, problemText);
-        }
-      } else if (extractionResult.type === 'TWO_PROBLEMS') {
-        // Two problems - show selection
-        const problems: Problem[] = extractionResult.problems.map((p: string, idx: number) => ({
-          id: `problem-${idx}`,
-          problem: p,
-        }));
-        setPendingProblems(problems);
-        setConversationState('PROBLEM_SELECTION');
-      } else if (extractionResult.type === 'MULTIPLE_PROBLEMS') {
-        // Multiple problems - show message and suggest uploading one at a time
-        const assistantMessage: Message = {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: "I see several math problems in this image. For the best learning experience, please upload an image with just one problem at a time, or type the problem you'd like to work on.",
+      // Handle different extraction types using handler map
+      const handler = extractionHandlers[extractionResult.type as keyof typeof extractionHandlers];
+      if (handler) {
+        const context: ExtractionHandlerContext = {
+          setMessages,
+          setPendingProblems,
+          setConversationState,
+          setExtractionText,
+          submitProblem,
         };
-        setMessages([assistantMessage]);
-      } else if (extractionResult.type === 'SOLUTION_DETECTED') {
-        // Solution detected - show message
-        const assistantMessage: Message = {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: "It looks like you uploaded a solution or completed homework. I'm here to help you learn, not check answers. Could you upload the original problem instead, or type it below?",
-        };
-        setMessages([assistantMessage]);
-      } else if (extractionResult.type === 'UNCLEAR_IMAGE') {
-        // Unclear - show confirmation dialog if we have extracted text
-        if (extractionResult.extracted_text && extractionResult.confidence === 'low') {
-          setExtractionText(extractionResult.extracted_text);
-          setConversationState('EXTRACTION_CONFIRMATION');
-        } else {
-          const assistantMessage: Message = {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: "I'm having trouble reading this image. Please try uploading a clearer photo, make sure the text is visible and well-lit, or type the problem below.",
-          };
-          setMessages([assistantMessage]);
-        }
+        await handler(extractionResult, context);
       }
     } catch (err) {
       console.error('Image extraction error:', err);
@@ -288,65 +248,19 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     }
   };
 
-  // Handle problem selection
-  const handleProblemSelect = async (problem: Problem) => {
-    setConversationState('CHATTING');
-    setPendingProblems([]);
-    
-    // Add user message with selected problem
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: problem.problem,
-    };
-    setMessages([userMessage]);
-    
-    // Start conversation with selected problem
-    await handleFormSubmit(new Event('submit') as unknown as React.FormEvent<HTMLFormElement>, problem.problem);
-  };
-
-  // Handle extraction confirmation
-  const handleExtractionConfirm = async (confirmedText: string) => {
-    setConversationState('CHATTING');
-    setExtractionText('');
-    
-    // Add user message with confirmed problem
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: confirmedText,
-    };
-    setMessages([userMessage]);
-    
-    // Start conversation with confirmed problem
-    await handleFormSubmit(new Event('submit') as unknown as React.FormEvent<HTMLFormElement>, confirmedText);
-  };
-
-  // Handle extraction cancel
-  const handleExtractionCancel = () => {
-    setConversationState('CHATTING');
-    setExtractionText('');
-    setMessages([]);
-  };
-
-  // Modified form submit to accept optional problem text
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>, problemText?: string) => {
-    e.preventDefault();
-    const textToSubmit = problemText || input.trim();
-    if (!textToSubmit || isLoading) return;
+  // Core problem submission logic (extracted from handleFormSubmit)
+  const submitProblem = async (problemText: string) => {
+    if (!problemText.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: textToSubmit,
+      content: problemText.trim(),
     };
 
-    // Add user message and clear input
+    // Add user message
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    if (!problemText) {
-    setInput('');
-    }
     setIsLoading(true);
     setError(null);
 
@@ -356,7 +270,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       const attemptTracking = manageAttemptTracking(newMessages, previousProblem || undefined);
       
       // If this looks like an answer (not a new problem), increment attempt count
-      const looksLikeAnswer = textToSubmit.length < 50 && (textToSubmit.includes('=') || /\d+/.test(textToSubmit));
+      const looksLikeAnswer = problemText.trim().length < 50 && (problemText.includes('=') || /\d+/.test(problemText));
       if (looksLikeAnswer && !attemptTracking.isNewProblem && currentProblem) {
         const problemSig = generateProblemSignature(currentProblem);
         incrementAttemptCount(problemSig);
@@ -439,6 +353,57 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle problem selection
+  const handleProblemSelect = async (problem: Problem) => {
+    setConversationState('CHATTING');
+    setPendingProblems([]);
+    
+    // Add user message with selected problem
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: problem.problem,
+    };
+    setMessages([userMessage]);
+    
+    // Start conversation with selected problem
+    await submitProblem(problem.problem);
+  };
+
+  // Handle extraction confirmation
+  const handleExtractionConfirm = async (confirmedText: string) => {
+    setConversationState('CHATTING');
+    setExtractionText('');
+    
+    // Add user message with confirmed problem
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: confirmedText,
+    };
+    setMessages([userMessage]);
+    
+    // Start conversation with confirmed problem
+    await submitProblem(confirmedText);
+  };
+
+  // Handle extraction cancel
+  const handleExtractionCancel = () => {
+    setConversationState('CHATTING');
+    setExtractionText('');
+    setMessages([]);
+  };
+
+  // Form submit handler
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    
+    const textToSubmit = input.trim();
+    setInput('');
+    await submitProblem(textToSubmit);
   };
 
   // Clear all localStorage data (developer mode only)
@@ -543,20 +508,20 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         
         {/* Chat Input (only show when chatting) */}
         {conversationState === 'CHATTING' && (
-          <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">
-            {/* Error display */}
-            {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                <p className="font-medium">Oops! Something went wrong:</p>
-                <p className="text-sm">{error.message}</p>
-                <button 
-                  onClick={() => window.location.reload()}
-                  className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-                >
-                  Try refreshing the page
-                </button>
-              </div>
-            )}
+        <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">
+          {/* Error display */}
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              <p className="font-medium">Oops! Something went wrong:</p>
+              <p className="text-sm">{error.message}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
+              >
+                Try refreshing the page
+              </button>
+            </div>
+          )}
 
             {/* Processing image indicator */}
             {isProcessingImage && (
@@ -565,27 +530,27 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
               </div>
             )}
 
-            {/* Welcome message for empty conversation */}
+          {/* Welcome message for empty conversation */}
             {messages.length === 0 && !isLoading && !isProcessingImage && (
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-blue-800 font-medium">Welcome to your AI Math Tutor! 👋</p>
-                <p className="text-blue-700 text-sm mt-1">
-                  I&apos;ll guide you through math problems using questions to help you discover solutions yourself. 
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-800 font-medium">Welcome to your AI Math Tutor! 👋</p>
+              <p className="text-blue-700 text-sm mt-1">
+                I&apos;ll guide you through math problems using questions to help you discover solutions yourself. 
                   Try typing a problem like &quot;2x + 5 = 13&quot; or upload an image to get started!
-                </p>
-              </div>
-            )}
+              </p>
+            </div>
+          )}
 
-            <MessageInput
-              input={input}
-              handleInputChange={handleInputChange}
-              handleSubmit={handleFormSubmit}
+          <MessageInput
+            input={input}
+            handleInputChange={handleInputChange}
+            handleSubmit={handleFormSubmit}
               isLoading={isLoading || isProcessingImage}
-              placeholder="Type your math problem here (e.g., 2x + 5 = 13)..."
+            placeholder="Type your math problem here (e.g., 2x + 5 = 13)..."
               onImageUpload={handleImageUpload}
               showImageUpload={messages.length === 0}
-            />
-          </div>
+          />
+        </div>
         )}
       </div>
     </div>

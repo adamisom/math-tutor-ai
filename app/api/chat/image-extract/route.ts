@@ -2,6 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateText } from 'ai';
 import { NextRequest } from 'next/server';
 import { IMAGE_EXTRACTION_SYSTEM_PROMPT } from '../../../lib/image-extraction-prompt';
+import { parseExtractionJSON } from '../../../lib/json-parser';
 
 export interface ImageExtractionResult {
   type: 'SINGLE_PROBLEM' | 'TWO_PROBLEMS' | 'MULTIPLE_PROBLEMS' | 'SOLUTION_DETECTED' | 'UNCLEAR_IMAGE';
@@ -62,53 +63,12 @@ export async function POST(req: NextRequest) {
     });
 
     // Parse JSON response
-    let extractionResult: ImageExtractionResult;
-    try {
-      // Try to extract JSON from the response (might have markdown code blocks)
-      let jsonText = result.text.trim();
-      
-      // Remove markdown code blocks if present
-      if (jsonText.startsWith('```')) {
-        const lines = jsonText.split('\n');
-        const startIndex = lines.findIndex(line => line.trim().startsWith('```'));
-        const endIndex = lines.findIndex((line, idx) => idx > startIndex && line.trim().endsWith('```'));
-        if (startIndex >= 0 && endIndex > startIndex) {
-          jsonText = lines.slice(startIndex + 1, endIndex).join('\n');
-        }
-      }
-      
-      // Remove any leading/trailing whitespace
-      jsonText = jsonText.trim();
-      
-      // Try to find JSON object in the text
-      const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonText = jsonMatch[0];
-      }
-      
-      extractionResult = JSON.parse(jsonText) as ImageExtractionResult;
-      
-      // Validate structure
-      if (!extractionResult.type || !extractionResult.confidence) {
-        throw new Error('Invalid extraction result structure');
-      }
-      
-      // Ensure problems array exists
-      if (!extractionResult.problems) {
-        extractionResult.problems = [];
-      }
-      
-    } catch (parseError) {
-      console.error('Failed to parse extraction result:', parseError);
+    const extractionResult = parseExtractionJSON(result.text);
+    
+    // Log parsing failures in development
+    if (process.env.NODE_ENV === 'development' && extractionResult.type === 'UNCLEAR_IMAGE' && extractionResult.confidence === 'low') {
+      console.error('Failed to parse extraction result, using fallback');
       console.error('Raw response:', result.text);
-      
-      // Fallback: treat as unclear
-      extractionResult = {
-        type: 'UNCLEAR_IMAGE',
-        confidence: 'low',
-        problems: [],
-        extracted_text: result.text.substring(0, 500), // First 500 chars as fallback
-      };
     }
 
     return new Response(

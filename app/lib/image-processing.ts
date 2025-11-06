@@ -176,17 +176,23 @@ export function fileToBase64(file: File): Promise<string> {
  * Process image: validate, compress, and convert to base64
  */
 export async function processImage(file: File): Promise<ProcessedImage> {
-  // Validate
+  // Validate (includes dimension check)
   const validation = await validateImage(file);
   if (!validation.valid) {
     throw new Error(validation.error || 'Image validation failed');
   }
 
-  // Compress if needed
+  // Get original dimensions once (already loaded during validation)
+  const originalDimensions = await getImageDimensions(file);
+  
+  // Compress if needed (returns same file if no compression needed)
   const processedFile = await compressImage(file);
   
-  // Get dimensions of processed image
-  const dimensions = await getImageDimensions(processedFile);
+  // Only get dimensions again if file was actually compressed
+  // If file wasn't compressed, we already have the dimensions
+  const finalDimensions = processedFile === file 
+    ? originalDimensions 
+    : await getImageDimensions(processedFile);
   
   // Convert to base64
   const base64 = await fileToBase64(processedFile);
@@ -194,8 +200,8 @@ export async function processImage(file: File): Promise<ProcessedImage> {
   return {
     base64,
     mimeType: processedFile.type,
-    width: dimensions.width,
-    height: dimensions.height,
+    width: finalDimensions.width,
+    height: finalDimensions.height,
     originalSize: file.size,
     processedSize: processedFile.size,
   };
