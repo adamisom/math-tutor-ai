@@ -1011,7 +1011,8 @@ export default function TestPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {TEST_PROBLEMS.map((problem) => {
-            const result = testResults[problem.id];
+            // Only access testResults after client hydration to prevent mismatch
+            const result = isClient ? testResults[problem.id] : undefined;
             
             return (
               <div
