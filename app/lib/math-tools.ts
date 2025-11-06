@@ -46,7 +46,18 @@ export const verifyEquationSolutionTool = tool({
  * Checks if an algebraic manipulation step is mathematically valid
  */
 export const verifyAlgebraicStepTool = tool({
-  description: `Verify if an algebraic manipulation step is mathematically valid. **MANDATORY:** Use this when a student performs ANY operation on an equation or expression (e.g., "2x + 5 = 13" → "2x = 8" by subtracting 5, or "x^2 - 4x = x^2 - 8" → "-4x = -8" by subtracting x^2). You MUST call this tool BEFORE confirming any intermediate step is correct. NEVER skip verification for algebraic transformations, even if they seem obvious. Returns whether the step is valid and an explanation.`,
+  description: `Verify if an algebraic manipulation step is mathematically valid. **MANDATORY:** Use this when a student provides ANY transformed equation, regardless of how they present it. This includes:
+- When student explicitly describes an operation and gives result
+- When student provides a new equation after you asked about an operation (e.g., you asked "What do you get when you multiply by -1?" and they respond with "x + 2 = 1")
+- When student shows any intermediate equation transformation
+- When student provides an equation that represents a step (not a final solution)
+
+**Examples:**
+- "2x + 5 = 13" → "2x = 8" (by subtracting 5)
+- "-x + 2 = -1" → "x + 2 = 1" (by multiplying by -1)
+- "x^2 - 4x = x^2 - 8" → "-4x = -8" (by subtracting x^2)
+
+You MUST call this tool BEFORE confirming any intermediate step is correct. NEVER skip verification for algebraic transformations, even if they seem obvious. NEVER say "Perfect!" or validate a step without calling this tool first. Returns whether the step is valid and an explanation.`,
   inputSchema: z.object({
     original_expression: z.string().describe('The original expression before the step (e.g., "2x + 5 = 13")'),
     resulting_expression: z.string().describe('The expression after the step (e.g., "2x = 8")'),
