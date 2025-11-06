@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { User, Bot, Loader2 } from 'lucide-react';
 import { parseToolCallBlocks } from '../lib/tool-call-injection';
 
@@ -120,6 +120,43 @@ interface MessageContentProps {
   content: string;
 }
 
+/**
+ * Parse text with **bold** markdown formatting and return React elements
+ * Converts **text** to <strong>text</strong>
+ */
+function parseBoldMarkdown(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  const pattern = /\*\*([^*]+)\*\*/g;
+  let match;
+  
+  while ((match = pattern.exec(text)) !== null) {
+    // Add text before the bold section
+    if (match.index > lastIndex) {
+      parts.push(text.substring(lastIndex, match.index));
+    }
+    
+    // Add the bold text
+    parts.push(
+      <strong key={match.index}>{match[1]}</strong>
+    );
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text after last match
+  if (lastIndex < text.length) {
+    parts.push(text.substring(lastIndex));
+  }
+  
+  // If no matches found, return original text
+  if (parts.length === 0) {
+    return [text];
+  }
+  
+  return parts;
+}
+
 function MessageContent({ content }: MessageContentProps) {
   // Parse tool call blocks and regular content
   const parts = parseToolCallBlocks(content);
@@ -142,9 +179,11 @@ function MessageContent({ content }: MessageContentProps) {
             </div>
           );
         } else {
+          // Parse bold markdown in text content
+          const boldContent = parseBoldMarkdown(part.content);
           return (
             <div key={index} className="whitespace-pre-wrap">
-              {part.content}
+              {boldContent}
             </div>
           );
         }
