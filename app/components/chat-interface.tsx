@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MessageList } from './message-list';
 import { MessageInput } from './message-input';
 import { 
@@ -28,7 +28,8 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [previousProblem, setPreviousProblem] = useState<string | null>(null);
   const [showStillThinking, setShowStillThinking] = useState(false);
-  const [thinkingTimer, setThinkingTimer] = useState<NodeJS.Timeout | null>(null);
+  const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -55,26 +56,51 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   // Show "still thinking" message after 5 seconds of loading
   useEffect(() => {
     if (isLoading) {
-      const timer = setTimeout(() => {
+      // Clear any existing timers first
+      if (thinkingTimerRef.current) {
+        clearTimeout(thinkingTimerRef.current);
+        thinkingTimerRef.current = null;
+      }
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+
+      // Set timer to show "still thinking" after 5 seconds
+      thinkingTimerRef.current = setTimeout(() => {
         setShowStillThinking(true);
         // Hide after 3 seconds
-        setTimeout(() => {
+        hideTimerRef.current = setTimeout(() => {
           setShowStillThinking(false);
+          hideTimerRef.current = null;
         }, 3000);
+        thinkingTimerRef.current = null;
       }, 5000);
-      setThinkingTimer(timer);
+
       return () => {
-        clearTimeout(timer);
+        if (thinkingTimerRef.current) {
+          clearTimeout(thinkingTimerRef.current);
+          thinkingTimerRef.current = null;
+        }
+        if (hideTimerRef.current) {
+          clearTimeout(hideTimerRef.current);
+          hideTimerRef.current = null;
+        }
         setShowStillThinking(false);
       };
     } else {
-      if (thinkingTimer) {
-        clearTimeout(thinkingTimer);
-        setThinkingTimer(null);
+      // Clear any existing timers when loading stops
+      if (thinkingTimerRef.current) {
+        clearTimeout(thinkingTimerRef.current);
+        thinkingTimerRef.current = null;
+      }
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
       }
       setShowStillThinking(false);
     }
-  }, [isLoading, thinkingTimer]);
+  }, [isLoading]);
 
   // Save conversation changes
   useEffect(() => {
@@ -216,9 +242,13 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     setHasUnsavedChanges(false);
     setError(null);
     setShowStillThinking(false);
-    if (thinkingTimer) {
-      clearTimeout(thinkingTimer);
-      setThinkingTimer(null);
+    if (thinkingTimerRef.current) {
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
     }
   };
 
