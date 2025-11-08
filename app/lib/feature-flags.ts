@@ -21,8 +21,8 @@ export function isLaTeXEnabled(): boolean {
     return process.env.NEXT_PUBLIC_ENABLE_LATEX === 'true';
   }
   
-  // Default: enabled
-  return true;
+  // Default: disabled (until double rendering bug is fixed)
+  return false;
 }
 
 /**
