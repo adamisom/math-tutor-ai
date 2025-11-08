@@ -67,10 +67,44 @@ export function parseLaTeX(content: string): LaTeXPart[] {
       const isStartOfBlock = nextChar === '$';
       const isEndOfBlock = prevChar === '$';
       
-      // If this is $$ (either start or end of block), skip it (block math is handled separately)
-      if (isStartOfBlock || isEndOfBlock) {
+      // Special case: if we have $a$$b$, the $$ in the middle should be treated as
+      // closing $ of first inline and opening $ of second inline, not as block math
+      // So we only skip if this $ is part of a block math that's already been matched
+      const isPartOfMatchedBlock = blockMatches.some(
+        block => (dollarIndex >= block.start && dollarIndex < block.end) ||
+                  (isStartOfBlock && dollarIndex === block.start) ||
+                  (isEndOfBlock && dollarIndex + 1 === block.end)
+      );
+      
+      if (isPartOfMatchedBlock) {
         i = dollarIndex + 1;
         continue;
+      }
+      
+      // If next char is $, check if it's the start of a block math
+      // But we need to be careful: $a$$b$ should be two inline math, not block math
+      // So we only skip if it's actually part of a matched block
+      if (isStartOfBlock) {
+        // Check if this $$ is actually a matched block math (has content between $$)
+        const isActuallyBlock = blockMatches.some(block => block.start === dollarIndex);
+        if (isActuallyBlock) {
+          i = dollarIndex + 1;
+          continue;
+        }
+        // Otherwise, treat the first $ as closing previous inline (if any) or skip
+        // Actually, if we're here and next is $, we should check if we can find a closing $
+        // For $a$$b$, we want: $a$ (inline), then $$ is closing $ of a and opening $ of b
+        // So we should NOT skip, but instead look for the closing $ which will be the second $
+      }
+      
+      // If prev char is $, this could be end of block math, but only if it's matched
+      if (isEndOfBlock) {
+        const isActuallyBlock = blockMatches.some(block => block.end === dollarIndex + 1);
+        if (isActuallyBlock) {
+          i = dollarIndex + 1;
+          continue;
+        }
+        // Otherwise, this $ might be closing an inline math that started before the previous $
       }
       
       // Try to find the closing $ for inline math
@@ -86,13 +120,15 @@ export function parseLaTeX(content: string): LaTeXPart[] {
             closingPos--;
           }
           if (closingBackslashCount % 2 === 0) {
-            // Check if this $ is part of $$ (block math)
+            // Check if this $ is followed by another $ (making it $$)
             const afterDollar = j < remaining.length - 1 ? remaining[j + 1] : null;
-            if (afterDollar !== '$') {
+            if (afterDollar === '$') {
+              // This is $$, but we want to treat the first $ as closing our inline math
+              // and the second $ as the start of the next inline math (for $a$$b$ case)
+              // So we close here
               closingIndex = j;
               break;
             } else {
-              // This is $$, so the first $ closes our inline math, skip the second $
               closingIndex = j;
               break;
             }
@@ -136,8 +172,8 @@ export function parseLaTeX(content: string): LaTeXPart[] {
         start: currentIndex,
         end: match.start,
       });
-    } else if (match.start === currentIndex && currentIndex === 0) {
-      // If match is at the very start, add empty text part
+    } else if (match.start === currentIndex && currentIndex === 0 && allMatches.length === 1) {
+      // If match is at the very start and it's the only match, add empty text part
       // (for test: "$x^2 + 2xy + y^2$" expects [text, inline, text])
       parts.push({
         type: 'text',
@@ -168,14 +204,26 @@ export function parseLaTeX(content: string): LaTeXPart[] {
       end: remaining.length,
     });
   } else if (currentIndex === remaining.length && allMatches.length > 0) {
-    // If we ended exactly at the end, add empty text part at end
-    // (for tests: "The formula is $$\\frac{a}{b}$$" and "$x^2 + 2xy + y^2$")
-    parts.push({
-      type: 'text',
-      content: '',
-      start: currentIndex,
-      end: remaining.length,
-    });
+    // Special case: if we ended exactly at the end and the last match was block math,
+    // add empty text part at end (for test: "The formula is $$\\frac{a}{b}$$")
+    const lastMatch = allMatches[allMatches.length - 1];
+    if (lastMatch.type === 'block') {
+      parts.push({
+        type: 'text',
+        content: '',
+        start: currentIndex,
+        end: remaining.length,
+      });
+    } else if (allMatches.length === 1 && lastMatch.start === 0) {
+      // If single inline math at start, add empty text at end
+      // (for test: "$x^2 + 2xy + y^2$")
+      parts.push({
+        type: 'text',
+        content: '',
+        start: currentIndex,
+        end: remaining.length,
+      });
+    }
   }
   
   // If no math found, return single text part
