@@ -43,6 +43,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const [extractionText, setExtractionText] = useState<string>('');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [pendingImage, setPendingImage] = useState<ProcessedImage | null>(null);
+  const [lastFailedRequest, setLastFailedRequest] = useState<{ problemText: string; messages: Message[] } | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -373,10 +374,20 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
 
     } catch (err) {
       console.error('Chat error:', err);
-      setError(err instanceof Error ? err : new Error('Unknown error'));
+      const error = err instanceof Error ? err : new Error('Unknown error');
+      setError(error);
+      // Store the failed request for retry
+      setLastFailedRequest({ problemText, messages: newMessages });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Retry last failed request
+  const handleRetry = async () => {
+    if (!lastFailedRequest) return;
+    setError(null);
+    await submitProblem(lastFailedRequest.problemText);
   };
 
   // Handle problem selection
@@ -562,24 +573,43 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         {/* Chat Input (only show when chatting) */}
         {conversationState === 'CHATTING' && (
         <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">
-          {/* Error display */}
+          {/* Error display with retry */}
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              <p className="font-medium">Oops! Something went wrong:</p>
-              <p className="text-sm">{error.message}</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-              >
-                Try refreshing the page
-              </button>
+              <p className="font-medium mb-1">Oops! Something went wrong:</p>
+              <p className="text-sm mb-3">{error.message}</p>
+              <div className="flex gap-2 flex-wrap">
+                {lastFailedRequest && (
+                  <button 
+                    onClick={handleRetry}
+                    disabled={isLoading}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                  >
+                    Retry
+                  </button>
+                )}
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+                >
+                  Refresh Page
+                </button>
+              </div>
             </div>
           )}
 
-            {/* Processing image indicator */}
+            {/* Processing image indicator with progress */}
             {isProcessingImage && (
               <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg">
-                <p className="text-sm">Processing image and extracting problem...</p>
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Processing image and extracting problem...</p>
+                    <div className="mt-2 w-full bg-blue-200 rounded-full h-1.5">
+                      <div className="bg-blue-600 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }} />
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useLayoutEffect } from 'react';
 import { ChatInterface } from '../components/chat-interface';
+import { ErrorBoundary } from '../components/error-boundary';
 import { CheckCircle, XCircle, AlertTriangle, RotateCcw, Copy, Check } from 'lucide-react';
 
 interface TestProblem {
@@ -945,7 +946,9 @@ export default function TestPage() {
 
         {/* Chat Interface */}
         <div className="flex-1">
-          <ChatInterface selectedProblem={selectedProblem} />
+          <ErrorBoundary>
+            <ChatInterface selectedProblem={selectedProblem} />
+          </ErrorBoundary>
         </div>
       </div>
     );

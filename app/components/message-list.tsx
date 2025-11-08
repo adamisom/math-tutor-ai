@@ -45,9 +45,16 @@ export function MessageList({ messages, isLoading, showStillThinking = false }: 
             <Bot className="w-5 h-5 text-gray-600" />
           </div>
           <div className="flex-1 max-w-md sm:max-w-lg">
-            <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm mr-6 sm:mr-8 flex items-center gap-3">
-              <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-              <span className="text-gray-600 text-sm font-medium">Thinking...</span>
+            <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm mr-6 sm:mr-8">
+              {/* Skeleton loader */}
+              <div className="flex items-center gap-3 mb-2">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                <span className="text-gray-600 text-sm font-medium">Thinking...</span>
+              </div>
+              <div className="space-y-2 animate-pulse">
+                <div className="h-3 bg-gray-200 rounded w-3/4" />
+                <div className="h-3 bg-gray-200 rounded w-1/2" />
+              </div>
             </div>
           </div>
         </div>
@@ -105,9 +112,17 @@ function MessageBubble({ message, isLastMessage, isLoading }: MessageBubbleProps
         }`}>
           {/* Show content or thinking indicator */}
           {!isUser && isLastMessage && isLoading && !message.content ? (
-            <div className="flex items-center gap-2 text-gray-500">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm font-medium">Thinking...</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-medium">Thinking...</span>
+              </div>
+              {/* Skeleton loader */}
+              <div className="space-y-2 animate-pulse mt-2">
+                <div className="h-3 bg-gray-200 rounded w-full" />
+                <div className="h-3 bg-gray-200 rounded w-5/6" />
+                <div className="h-3 bg-gray-200 rounded w-4/6" />
+              </div>
             </div>
           ) : (
             <>
