@@ -37,8 +37,8 @@ describe('isLaTeXEnabled', () => {
       localStorage: mockLocalStorage,
     } as unknown as Window & typeof globalThis;
     
-    // No localStorage or env var set - should default to false (LaTeX is disabled by default)
-    expect(isLaTeXEnabled()).toBe(false);
+    // No localStorage or env var set - should default to true (LaTeX is enabled by default)
+    expect(isLaTeXEnabled()).toBe(true);
   });
 
   it('should respect localStorage override (client-side)', () => {
@@ -94,8 +94,8 @@ describe('isLaTeXEnabled', () => {
     // No env var set
     delete (process.env as { NEXT_PUBLIC_ENABLE_LATEX?: string }).NEXT_PUBLIC_ENABLE_LATEX;
     
-    // Should default to false (LaTeX is disabled by default)
-    expect(isLaTeXEnabled()).toBe(false);
+    // Should default to true (LaTeX is enabled by default)
+    expect(isLaTeXEnabled()).toBe(true);
   });
 });
 
