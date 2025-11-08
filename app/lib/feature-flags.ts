@@ -8,9 +8,9 @@
  */
 export function isLaTeXEnabled(): boolean {
   // Check environment variable first
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && window.localStorage) {
     // Client-side: check localStorage for override
-    const stored = localStorage.getItem('feature:latex');
+    const stored = window.localStorage.getItem('feature:latex');
     if (stored !== null) {
       return stored === 'true';
     }
@@ -29,8 +29,8 @@ export function isLaTeXEnabled(): boolean {
  * Set LaTeX feature flag (client-side only)
  */
 export function setLaTeXEnabled(enabled: boolean): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('feature:latex', enabled ? 'true' : 'false');
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem('feature:latex', enabled ? 'true' : 'false');
   }
 }
 

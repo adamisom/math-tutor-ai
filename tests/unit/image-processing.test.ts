@@ -94,13 +94,13 @@ describe('validateImage', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('should reject images smaller than 100x100px', async () => {
+  it('should reject images smaller than 20x20px', async () => {
     const file = createMockFile('test.png', 'image/png', 1024);
-    // Mock small dimensions
+    // Mock small dimensions (10x10 is below the 20px minimum)
     const OriginalImage = global.Image;
     global.Image = class {
-      width = 50;
-      height = 50;
+      width = 10;
+      height = 10;
       onload: (() => void) | null = null;
       onerror: (() => void) | null = null;
       src = '';
