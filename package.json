@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:unit": "vitest run tests/unit"
+    "test:unit": "vitest run tests/unit",
+    "test:dialogue": "node scripts/test-dialogue.js",
+    "test:dialogue:bash": "bash scripts/test-dialogue.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.41",
