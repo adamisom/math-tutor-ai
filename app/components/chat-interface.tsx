@@ -19,7 +19,7 @@ interface Message {
   content: string;
 }
 
-type ConversationState = 'CHATTING' | 'PROBLEM_SELECTION' | 'EXTRACTION_CONFIRMATION';
+type ConversationState = 'CHATTING' | 'PROBLEM_SELECTION' | 'EXTRACTION_CONFIRMATION' | 'IMAGE_UPLOAD_CONFIRMATION';
 
 interface ChatInterfaceProps {
   selectedProblem?: { id: string; problem: string } | null;
@@ -42,6 +42,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const [pendingProblems, setPendingProblems] = useState<Problem[]>([]);
   const [extractionText, setExtractionText] = useState<string>('');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [pendingImage, setPendingImage] = useState<ProcessedImage | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -193,11 +194,19 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
 
   // Handle image upload
   const handleImageUpload = async (processedImage: ProcessedImage) => {
-    // If there's an existing conversation, start a new problem
+    // If there's an existing conversation, ask for confirmation
     if (messages.length > 0) {
-      handleNewProblem();
+      setPendingImage(processedImage);
+      setConversationState('IMAGE_UPLOAD_CONFIRMATION');
+      return;
     }
 
+    // No existing conversation, process immediately
+    await processImageUpload(processedImage);
+  };
+
+  // Process image upload (called after confirmation or if no conversation exists)
+  const processImageUpload = async (processedImage: ProcessedImage) => {
     setIsProcessingImage(true);
     setError(null);
 
@@ -245,6 +254,22 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     } finally {
       setIsProcessingImage(false);
     }
+  };
+
+  // Handle confirmation to start new problem with image
+  const handleConfirmImageUpload = async () => {
+    if (pendingImage) {
+      handleNewProblem();
+      setConversationState('CHATTING');
+      await processImageUpload(pendingImage);
+      setPendingImage(null);
+    }
+  };
+
+  // Handle cancellation of image upload
+  const handleCancelImageUpload = () => {
+    setPendingImage(null);
+    setConversationState('CHATTING');
   };
 
   // Core problem submission logic (extracted from handleFormSubmit)
@@ -502,6 +527,35 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
               onConfirm={handleExtractionConfirm}
               onCancel={handleExtractionCancel}
             />
+          </div>
+        )}
+
+        {/* Image Upload Confirmation UI */}
+        {conversationState === 'IMAGE_UPLOAD_CONFIRMATION' && pendingImage && (
+          <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <p className="text-yellow-800 font-medium mb-2">
+                Start a new problem?
+              </p>
+              <p className="text-yellow-700 text-sm">
+                You&apos;re currently working on a problem. Uploading an image will start a new problem and clear your current conversation. Are you sure you want to continue?
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmImageUpload}
+                className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+              >
+                Yes, start new problem
+              </button>
+              <button
+                onClick={handleCancelImageUpload}
+                className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
         

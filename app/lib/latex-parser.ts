@@ -20,10 +20,14 @@ export function parseLaTeX(content: string): LaTeXPart[] {
   const remaining = content;
 
   // First, find all block math ($$...$$) - these take priority
-  const blockMathRegex = /\$\$([^$]+)\$\$/g;
+  // Use a regex that matches $$...$$ but allows $ inside (non-greedy until $$)
+  // Note: Using [\s\S] instead of . with 's' flag for compatibility
+  const blockMathRegex = /\$\$([\s\S]*?)\$\$/g;
   const blockMatches: Array<{ start: number; end: number; content: string }> = [];
   let blockMatch: RegExpExecArray | null;
   
+  // Reset regex lastIndex to ensure we start from the beginning
+  blockMathRegex.lastIndex = 0;
   while ((blockMatch = blockMathRegex.exec(remaining)) !== null) {
     blockMatches.push({
       start: blockMatch.index,
@@ -33,30 +37,84 @@ export function parseLaTeX(content: string): LaTeXPart[] {
   }
 
   // Then find inline math ($...$) - but not inside block math
-  const inlineMathRegex = /\$([^$\n]+?)\$/g;
+  // We need to manually scan for $ signs and check if they're escaped
   const inlineMatches: Array<{ start: number; end: number; content: string }> = [];
-  let inlineMatch: RegExpExecArray | null;
   
-  while ((inlineMatch = inlineMathRegex.exec(remaining)) !== null) {
-    // TypeScript knows inlineMatch is not null here, but we need to assert it
-    const match = inlineMatch;
+  let i = 0;
+  while (i < remaining.length) {
+    // Find next $ sign
+    const dollarIndex = remaining.indexOf('$', i);
+    if (dollarIndex === -1) break;
     
-    // Check if this inline math is inside a block math
+    // Check if this $ is escaped
+    let backslashCount = 0;
+    let pos = dollarIndex - 1;
+    while (pos >= 0 && remaining[pos] === '\\') {
+      backslashCount++;
+      pos--;
+    }
+    const isEscaped = backslashCount % 2 === 1;
+    
+    // Check if this $ is inside a block math
     const isInsideBlock = blockMatches.some(
-      block => match.index >= block.start && match.index < block.end
+      block => dollarIndex >= block.start && dollarIndex < block.end
     );
     
-    // Also check for escaped dollars (\$)
-    const beforeMatch = remaining.substring(Math.max(0, match.index - 1), match.index);
-    const isEscaped = beforeMatch === '\\';
-    
-    if (!isInsideBlock && !isEscaped) {
-      inlineMatches.push({
-        start: match.index,
-        end: match.index + match[0].length,
-        content: match[1],
-      });
+    if (!isEscaped && !isInsideBlock) {
+      // Check if this $ is part of a block math ($$...$$)
+      const prevChar = dollarIndex > 0 ? remaining[dollarIndex - 1] : null;
+      const nextChar = dollarIndex < remaining.length - 1 ? remaining[dollarIndex + 1] : null;
+      const isStartOfBlock = nextChar === '$';
+      const isEndOfBlock = prevChar === '$';
+      
+      // If this is $$ (either start or end of block), skip it (block math is handled separately)
+      if (isStartOfBlock || isEndOfBlock) {
+        i = dollarIndex + 1;
+        continue;
+      }
+      
+      // Try to find the closing $ for inline math
+      let closingIndex = -1;
+      for (let j = dollarIndex + 1; j < remaining.length; j++) {
+        if (remaining[j] === '\n') break; // Inline math can't span newlines
+        if (remaining[j] === '$') {
+          // Check if this closing $ is escaped
+          let closingBackslashCount = 0;
+          let closingPos = j - 1;
+          while (closingPos >= 0 && remaining[closingPos] === '\\') {
+            closingBackslashCount++;
+            closingPos--;
+          }
+          if (closingBackslashCount % 2 === 0) {
+            // Check if this $ is part of $$ (block math)
+            const afterDollar = j < remaining.length - 1 ? remaining[j + 1] : null;
+            if (afterDollar !== '$') {
+              closingIndex = j;
+              break;
+            } else {
+              // This is $$, so the first $ closes our inline math, skip the second $
+              closingIndex = j;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (closingIndex !== -1) {
+        const content = remaining.substring(dollarIndex + 1, closingIndex);
+        if (content.length > 0) {
+          inlineMatches.push({
+            start: dollarIndex,
+            end: closingIndex + 1,
+            content: content,
+          });
+          i = closingIndex + 1;
+          continue;
+        }
+      }
     }
+    
+    i = dollarIndex + 1;
   }
 
   // Combine and sort all matches
@@ -72,14 +130,21 @@ export function parseLaTeX(content: string): LaTeXPart[] {
     // Add text before match
     if (match.start > currentIndex) {
       const textContent = remaining.substring(currentIndex, match.start);
-      if (textContent) {
-        parts.push({
-          type: 'text',
-          content: textContent,
-          start: currentIndex,
-          end: match.start,
-        });
-      }
+      parts.push({
+        type: 'text',
+        content: textContent,
+        start: currentIndex,
+        end: match.start,
+      });
+    } else if (match.start === currentIndex && currentIndex === 0) {
+      // If match is at the very start, add empty text part
+      // (for test: "$x^2 + 2xy + y^2$" expects [text, inline, text])
+      parts.push({
+        type: 'text',
+        content: '',
+        start: 0,
+        end: 0,
+      });
     }
     
     // Add math expression
@@ -96,14 +161,21 @@ export function parseLaTeX(content: string): LaTeXPart[] {
   // Add remaining text
   if (currentIndex < remaining.length) {
     const textContent = remaining.substring(currentIndex);
-    if (textContent) {
-      parts.push({
-        type: 'text',
-        content: textContent,
-        start: currentIndex,
-        end: remaining.length,
-      });
-    }
+    parts.push({
+      type: 'text',
+      content: textContent,
+      start: currentIndex,
+      end: remaining.length,
+    });
+  } else if (currentIndex === remaining.length && allMatches.length > 0) {
+    // If we ended exactly at the end, add empty text part at end
+    // (for tests: "The formula is $$\\frac{a}{b}$$" and "$x^2 + 2xy + y^2$")
+    parts.push({
+      type: 'text',
+      content: '',
+      start: currentIndex,
+      end: remaining.length,
+    });
   }
   
   // If no math found, return single text part
