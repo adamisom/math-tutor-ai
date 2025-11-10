@@ -1,8 +1,9 @@
 'use client';
 
 import { Send, Loader2 } from 'lucide-react';
-import { KeyboardEvent } from 'react';
+import { KeyboardEvent, useState } from 'react';
 import { ImageUploadButton, ProcessedImage } from './image-upload';
+import { VoiceControls } from './voice-controls';
 
 interface MessageInputProps {
   input: string;
@@ -43,19 +44,31 @@ export function MessageInput({
     }
   };
 
+  const [voiceInput, setVoiceInput] = useState('');
+  
+  const handleSpeechResult = (text: string) => {
+    setVoiceInput(text);
+    handleInputChange({ target: { value: text } } as any);
+  };
+  
   return (
-    <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-start">
-      {showImageUpload && onImageUpload && (
-        <div className="relative flex-shrink-0">
-          <ImageUploadButton 
-            onImageProcessed={onImageUpload}
-            disabled={isLoading}
-          />
-        </div>
-      )}
-      <div className="flex-1 relative">
+    <div className="space-y-2">
+      <VoiceControls
+        onSpeechResult={handleSpeechResult}
+        autoSpeak={false}
+      />
+      <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-start">
+        {showImageUpload && onImageUpload && (
+          <div className="relative flex-shrink-0">
+            <ImageUploadButton 
+              onImageProcessed={onImageUpload}
+              disabled={isLoading}
+            />
+          </div>
+        )}
+        <div className="flex-1 relative">
         <textarea
-          value={input}
+          value={input || voiceInput}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
@@ -96,6 +109,7 @@ export function MessageInput({
         )}
       </button>
     </form>
+    </div>
   );
 }
 

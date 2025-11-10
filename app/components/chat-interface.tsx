@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Sparkles } from 'lucide-react';
 import { MessageList } from './message-list';
 import { MessageInput } from './message-input';
 import { ProblemSelector, Problem, ExtractionConfirmation } from './problem-selector';
@@ -12,6 +13,15 @@ import {
   getCurrentProblemFromMessages 
 } from '../lib/attempt-tracking';
 import { extractionHandlers, ExtractionHandlerContext } from '../lib/extraction-handlers';
+import { ConversationHistory } from './conversation-history';
+import { XPDisplay } from './xp-display';
+import { XPAnimation, useXPAnimation } from './xp-animation';
+import { addXP, calculateAttemptXP, calculateSolveXP } from '../lib/xp-system';
+import { detectProblemCompletion, determineDifficulty } from '../lib/problem-completion';
+import { saveConversationSession, createSessionFromMessages, loadConversationHistory } from '../lib/conversation-history';
+import { VoiceControls } from './voice-controls';
+import { ProblemGenerator } from './problem-generator';
+import { ttsService } from '../lib/tts';
 
 interface Message {
   id: string;
@@ -44,6 +54,14 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [pendingImage, setPendingImage] = useState<ProcessedImage | null>(null);
   const [lastFailedRequest, setLastFailedRequest] = useState<{ problemText: string; messages: Message[] } | null>(null);
+  
+  // Phase 6 features
+  const [showHistory, setShowHistory] = useState(false);
+  const [showProblemGenerator, setShowProblemGenerator] = useState(false);
+  const [showTryAnotherPrompt, setShowTryAnotherPrompt] = useState(false);
+  const [problemSolved, setProblemSolved] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const { animations, showXP, removeAnimation } = useXPAnimation();
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -148,22 +166,100 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   }, [isLoading, showStillThinking]);
 
 
-  // Save conversation changes
+  // Save conversation changes (both old and new systems)
   useEffect(() => {
     if (messages.length > 0) {
       setHasUnsavedChanges(true);
-      // Debounced save - convert Message[] to ConversationMessage[]
       const timer = setTimeout(() => {
+        // Save to old format for backward compatibility
         const conversationMessages: ConversationMessage[] = messages.map(msg => ({
           role: msg.role,
           content: msg.content,
         }));
         saveConversation(conversationMessages);
+        
+        // Save to new conversation history system
+        const currentProblem = getCurrentProblemFromMessages(messages);
+        if (currentProblem) {
+          if (currentSessionId) {
+            const history = loadConversationHistory();
+            const session = history.sessions.find(s => s.id === currentSessionId);
+            if (session) {
+              session.messages = messages.map(msg => ({
+                role: msg.role as 'user' | 'assistant',
+                content: msg.content,
+                timestamp: Date.now(),
+              }));
+              session.updatedAt = Date.now();
+              saveConversationSession(session);
+            }
+          } else if (messages.length > 0 && messages[0].role === 'user') {
+            const newSession = createSessionFromMessages(
+              messages.map(m => ({ role: m.role, content: m.content })),
+              currentProblem
+            );
+            setCurrentSessionId(newSession.id);
+            saveConversationSession(newSession);
+          }
+        }
+        
         setHasUnsavedChanges(false);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [messages]);
+  }, [messages, currentSessionId]);
+  
+  // Check for problem completion and award XP
+  useEffect(() => {
+    if (messages.length > 0 && !isLoading) {
+      const currentProblem = getCurrentProblemFromMessages(messages);
+      
+      if (currentProblem) {
+        const completion = detectProblemCompletion(messages, currentProblem);
+        
+        if (completion.isComplete && !problemSolved) {
+          setProblemSolved(true);
+          
+          const difficulty = determineDifficulty(currentProblem);
+          const problemSig = generateProblemSignature(currentProblem);
+          const attemptCount = typeof window !== 'undefined' 
+            ? parseInt(localStorage.getItem(`attempts_${problemSig}`) || '0', 10)
+            : 0;
+          
+          const solveXP = calculateSolveXP(difficulty, attemptCount);
+          addXP(solveXP, 'solve', currentProblem);
+          showXP(solveXP, 'solve');
+          
+          // Update session
+          if (currentSessionId) {
+            const history = loadConversationHistory();
+            const session = history.sessions.find(s => s.id === currentSessionId);
+            if (session) {
+              session.completed = true;
+              session.xpEarned = solveXP;
+              saveConversationSession(session);
+            }
+          }
+          
+          setTimeout(() => {
+            setShowTryAnotherPrompt(true);
+          }, 2000);
+        } else if (!completion.isComplete && !problemSolved && messages.length > 1) {
+          // Award attempt XP (only after first message)
+          const problemSig = generateProblemSignature(currentProblem);
+          const attemptCount = typeof window !== 'undefined'
+            ? parseInt(localStorage.getItem(`attempts_${problemSig}`) || '0', 10)
+            : 0;
+          
+          if (attemptCount > 0) {
+            const attemptXP = calculateAttemptXP(attemptCount);
+            addXP(attemptXP, 'attempt', currentProblem);
+            showXP(attemptXP, 'attempt');
+          }
+        }
+      }
+    }
+  }, [messages, isLoading, problemSolved, currentSessionId]);
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -183,6 +279,9 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     setConversationState('CHATTING');
     setPendingProblems([]);
     setExtractionText('');
+    setProblemSolved(false);
+    setShowTryAnotherPrompt(false);
+    setCurrentSessionId(null);
     if (thinkingTimerRef.current) {
       clearTimeout(thinkingTimerRef.current);
       thinkingTimerRef.current = null;
@@ -191,6 +290,23 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
     }
+  };
+  
+  const handleGenerateProblem = () => {
+    setShowProblemGenerator(true);
+    setShowTryAnotherPrompt(false);
+  };
+  
+  const handleProblemGenerated = (problem: string) => {
+    setShowProblemGenerator(false);
+    handleNewProblem();
+    submitProblem(problem);
+  };
+  
+  const handleSelectFromTest = () => {
+    setShowTryAnotherPrompt(false);
+    // Navigate to test page or show test problem selector
+    window.location.href = '/test';
   };
 
   // Handle image upload
@@ -486,9 +602,17 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           <p className="text-sm text-gray-600">Your Socratic learning companion</p>
         </div>
         <div className="flex items-center gap-3">
+          <XPDisplay />
           {hasUnsavedChanges && (
             <span className="text-xs text-gray-500">Saving...</span>
           )}
+          <button
+            onClick={() => setShowHistory(true)}
+            className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            title="View conversation history"
+          >
+            History
+          </button>
           {process.env.NODE_ENV === 'development' && (
             <button
               onClick={handleClearStorage}
@@ -506,6 +630,78 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           </button>
         </div>
       </div>
+      
+      {/* XP Animations */}
+      {animations.map(anim => (
+        <XPAnimation
+          key={anim.id}
+          amount={anim.amount}
+          reason={anim.reason}
+          onComplete={() => removeAnimation(anim.id)}
+        />
+      ))}
+      
+      {/* Conversation History Modal */}
+      {showHistory && (
+        <ConversationHistory
+          onSelectSession={(session) => {
+            setMessages(session.messages.map((msg, idx) => ({
+              id: `session-${session.id}-${idx}`,
+              role: msg.role,
+              content: msg.content,
+            })));
+            setCurrentSessionId(session.id);
+            setShowHistory(false);
+          }}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
+      
+      {/* Problem Generator Modal */}
+      {showProblemGenerator && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <ProblemGenerator
+            onProblemGenerated={handleProblemGenerated}
+            onClose={() => setShowProblemGenerator(false)}
+          />
+        </div>
+      )}
+      
+      {/* Try Another Problem Prompt */}
+      {showTryAnotherPrompt && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-40 bg-white border-2 border-blue-500 rounded-lg shadow-xl p-6 max-w-md">
+          <h3 className="text-lg font-bold text-gray-900 mb-2">
+            🎉 Great job solving that problem!
+          </h3>
+          <p className="text-gray-700 mb-4">
+            Would you like to try another problem? We can create one with AI!
+          </p>
+          <div className="space-y-2">
+            <button
+              onClick={handleGenerateProblem}
+              className="w-full px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 flex items-center justify-center gap-2"
+            >
+              <Sparkles className="w-5 h-5" />
+              Generate AI Problem
+            </button>
+            <button
+              onClick={handleSelectFromTest}
+              className="w-full px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Choose from Test Problems
+            </button>
+            <button
+              onClick={() => {
+                setShowTryAnotherPrompt(false);
+                handleNewProblem();
+              }}
+              className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Type Your Own Problem
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -628,11 +824,21 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             input={input}
             handleInputChange={handleInputChange}
             handleSubmit={handleFormSubmit}
-              isLoading={isLoading || isProcessingImage}
+            isLoading={isLoading || isProcessingImage}
             placeholder="Type your math problem here (e.g., 2x + 5 = 13)..."
-              onImageUpload={handleImageUpload}
-              showImageUpload={true}
+            onImageUpload={handleImageUpload}
+            showImageUpload={true}
           />
+          
+          {/* Voice Controls for TTS */}
+          {messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
+            <div className="mt-2">
+              <VoiceControls
+                autoSpeak={true}
+                assistantMessage={messages[messages.length - 1]?.content}
+              />
+            </div>
+          )}
         </div>
         )}
       </div>
