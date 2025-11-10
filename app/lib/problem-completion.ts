@@ -28,14 +28,33 @@ export function detectProblemCompletion(
   
   const content = lastAssistantMessage.content.toLowerCase();
   
+  // Check if the user's last message looks like a final answer (not just a step)
+  const lastUserMessage = [...messages]
+    .reverse()
+    .find(msg => msg.role === 'user');
+  
+  const userProvidedAnswer = lastUserMessage && (
+    lastUserMessage.content.length < 100 && // Short answer, not a long explanation
+    (lastUserMessage.content.includes('=') || 
+     /^[x=0-9\s+\-*/()]+$/.test(lastUserMessage.content.trim())) // Looks like math answer
+  );
+  
+  // Strong indicators that require user to have provided an answer
   const strongIndicators = [
-    'excellent work',
-    'great job',
     'you successfully solved',
-    'correct!',
-    'that\'s correct',
     'problem solved',
     'you solved it',
+    'that\'s the correct answer',
+    'that is correct',
+    'your answer is correct',
+  ];
+  
+  // Weaker indicators that still require confirmation
+  const weakIndicators = [
+    'excellent work',
+    'great job',
+    'correct!',
+    'that\'s correct',
     '🎉',
     'perfect!',
     'well done',
@@ -45,11 +64,19 @@ export function detectProblemCompletion(
     content.includes(indicator)
   );
   
+  const hasWeakIndicator = weakIndicators.some(indicator => 
+    content.includes(indicator)
+  );
+  
   const confirmsCorrectness = 
     content.includes('correct') && 
-    (content.includes('yes') || content.includes('exactly') || content.includes('right'));
+    (content.includes('yes') || content.includes('exactly') || content.includes('right')) &&
+    (content.includes('answer') || content.includes('solution'));
   
-  if (hasStrongIndicator || confirmsCorrectness) {
+  // Only mark as complete if:
+  // 1. Strong indicator (explicit completion phrases), OR
+  // 2. Weak indicator + user provided an answer + confirms correctness
+  if (hasStrongIndicator || (hasWeakIndicator && userProvidedAnswer && confirmsCorrectness)) {
     return {
       isComplete: true,
       confidence: hasStrongIndicator ? 0.9 : 0.7,

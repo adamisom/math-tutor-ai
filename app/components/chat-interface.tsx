@@ -21,7 +21,7 @@ import { addXP, calculateAttemptXP, calculateSolveXP } from '../lib/xp-system';
 import { detectProblemCompletion, determineDifficulty } from '../lib/problem-completion';
 import { createSessionFromMessages } from '../lib/conversation-history';
 import { saveConversationSessionHybrid, updateConversationSessionHybrid, loadConversationHistoryHybrid, syncLocalStorageToServer } from '../lib/conversation-history-api';
-import { saveXPStateHybrid } from '../lib/xp-system-api';
+import { saveXPStateHybrid, loadXPStateHybrid } from '../lib/xp-system-api';
 import { ProblemGenerator } from './problem-generator';
 import { AuthButton } from './auth-button';
 import { AuthBanner } from './auth-banner';
@@ -173,7 +173,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     }
   }, [isLoading, showStillThinking]);
 
-  // Sync localStorage to server on login and show greeting
+  // On login: sync localStorage to database, then clear localStorage and load from database
   useEffect(() => {
     if (isAuthenticated && !previousAuthState) {
       // Show login greeting animation
@@ -181,10 +181,57 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         setShowLoginGreeting(true);
       }
       
-      // Sync data
-      syncLocalStorageToServer().catch(err => {
-        console.warn('Failed to sync localStorage to server:', err);
-      });
+      // Step 1: Sync localStorage to database (one-time migration of any local data)
+      // Step 2: Clear localStorage
+      // Step 3: Load from database and populate localStorage
+      (async () => {
+        try {
+          // Step 1: Sync any existing localStorage data to database first
+          await syncLocalStorageToServer();
+          console.log('[Login] Synced localStorage to database');
+          
+          // Step 2: Clear localStorage (database is now source of truth)
+          const { removeStorageItem } = await import('../lib/local-storage');
+          removeStorageItem('math-tutor-conversation');
+          removeStorageItem('math-tutor-conversation-history');
+          removeStorageItem('math-tutor-xp');
+          console.log('[Login] Cleared localStorage');
+          
+          // Step 3: Load from database and populate localStorage
+          const history = await loadConversationHistoryHybrid(true);
+          const xpState = await loadXPStateHybrid(true);
+          
+          console.log('[Login] Loaded from database:', {
+            conversations: history.sessions.length,
+            xp: xpState.totalXP,
+            level: xpState.level,
+            transactions: xpState.transactions?.length || 0
+          });
+          
+          // Populate localStorage with database data (for UI components to read)
+          const { setStorageItem } = await import('../lib/local-storage');
+          const { saveConversationSession } = await import('../lib/conversation-history');
+          
+          // Save conversations to localStorage (one by one to use existing save logic)
+          for (const session of history.sessions) {
+            saveConversationSession(session);
+          }
+          
+          // Save XP to localStorage
+          setStorageItem('math-tutor-xp', xpState);
+          console.log('[Login] Saved XP to localStorage:', xpState);
+          
+          // Trigger XP display update (with a small delay to ensure localStorage is written)
+          setTimeout(() => {
+            window.dispatchEvent(new Event('xp-updated'));
+            console.log('[Login] Dispatched xp-updated event');
+          }, 100);
+          
+          console.log('[Login] ✅ Populated localStorage from database');
+        } catch (error) {
+          console.error('[Login] ❌ Failed to load data from database:', error);
+        }
+      })();
     }
     setPreviousAuthState(isAuthenticated);
   }, [isAuthenticated, previousAuthState, session?.user?.name]);
@@ -260,11 +307,13 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           showXP(solveXP, 'solve');
           
           // Save XP to database if authenticated
+          console.log('[XP Save] Attempting to save solve XP, isAuthenticated:', isAuthenticated);
           import('../lib/xp-system').then(({ getXPState }) => {
             const xpState = getXPState();
+            console.log('[XP Save] Current XP state:', { totalXP: xpState.totalXP, level: xpState.level });
             if (xpState) {
               saveXPStateHybrid(xpState, isAuthenticated).catch(err => {
-                console.warn('Failed to save XP to database:', err);
+                console.error('[XP Save] Failed to save XP to database:', err);
               });
             }
           });
@@ -445,11 +494,13 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         showXP(attemptXP, 'attempt');
         
         // Save XP to database if authenticated
+        console.log('[XP Save] Attempting to save attempt XP, isAuthenticated:', isAuthenticated);
         import('../lib/xp-system').then(({ getXPState }) => {
           const xpState = getXPState();
+          console.log('[XP Save] Current XP state:', { totalXP: xpState.totalXP, level: xpState.level });
           if (xpState) {
             saveXPStateHybrid(xpState, isAuthenticated).catch(err => {
-              console.warn('Failed to save XP to database:', err);
+              console.error('[XP Save] Failed to save XP to database:', err);
             });
           }
         });
@@ -599,10 +650,21 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const handleClearStorage = () => {
     if (typeof window === 'undefined') return;
     
-    if (confirm('Clear all localStorage data? This will remove conversation history, attempt tracking, and test results.')) {
+    if (confirm('Clear all localStorage data? This will remove conversation history, XP, attempt tracking, voice settings, and test results.')) {
       try {
-        // Clear conversation history
+        // Clear conversation history (both old and new keys)
         localStorage.removeItem('math-tutor-conversation');
+        localStorage.removeItem('math-tutor-conversation-history');
+        
+        // Clear XP state
+        localStorage.removeItem('math-tutor-xp');
+        
+        // Clear voice settings
+        localStorage.removeItem('math-tutor-tts-settings');
+        localStorage.removeItem('math-tutor-stt-settings');
+        
+        // Clear intro screen status
+        localStorage.removeItem('math-tutor-intro-shown');
         
         // Clear all attempt tracking keys
         const keysToRemove: string[] = [];
@@ -621,8 +683,13 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         setMessages([]);
         setPreviousProblem(null);
         setError(null);
+        setProblemSolved(false);
+        setCurrentSessionId(null);
+        setShowHistory(false);
+        setShowTryAnotherPrompt(false);
         
-        console.log('[Dev] localStorage cleared');
+        // Reload page to reset all state (including XP display)
+        window.location.reload();
       } catch (error) {
         console.error('[Dev] Failed to clear localStorage:', error);
         alert('Failed to clear localStorage. Check console for details.');
@@ -721,8 +788,17 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       
       {/* Try Another Problem Prompt */}
       {showTryAnotherPrompt && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-40 bg-white border-2 border-blue-500 rounded-lg shadow-xl p-6 max-w-md">
-          <h3 className="text-lg font-bold text-gray-900 mb-2">
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-40 bg-white border-2 border-blue-500 rounded-lg shadow-xl p-6 max-w-md relative">
+          <button
+            onClick={() => setShowTryAnotherPrompt(false)}
+            className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <h3 className="text-lg font-bold text-gray-900 mb-2 pr-6">
             🎉 Great job solving that problem!
           </h3>
           <p className="text-gray-700 mb-4">
