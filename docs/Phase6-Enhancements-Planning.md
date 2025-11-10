@@ -2205,6 +2205,14 @@ Home (page.tsx)
 - Custom voice selection
 - Pronunciation learning
 
+### LaTeX Rendering Fixes (DEFERRED - LOWEST PRIORITY)
+- ⚠️ **EXPLICITLY DEFERRED** - Experimental work contained in `attempted-latex-rendering-fixes` branch
+- See `docs/misc/LaTeX-Rendering-Experimental-Branch.md` for details
+- **Do NOT work on this until ALL Phase 6 features are complete**
+- Current LaTeX rendering is functional (may have minor issues but not blocking)
+- Experimental XML tag approach exists but needs thorough testing
+- Revisit only after: XP system, conversation history, AI problems, voice interface, and intro screen are all complete and stable
+
 ---
 
 **End of Planning Document**
