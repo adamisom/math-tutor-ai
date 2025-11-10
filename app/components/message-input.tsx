@@ -77,14 +77,22 @@ export function MessageInput({
       // Set height, ensuring it matches scrollHeight exactly
       target.style.height = Math.min(scrollHeight, 120) + 'px';
     }
+  }, [input]);
+  
+  // Clear voiceInput when input is cleared (e.g., after form submission)
+  useEffect(() => {
+    if (!input && voiceInput) {
+      setVoiceInput('');
+    }
   }, [input, voiceInput]);
   
   const handleSpeechResult = (text: string) => {
-    setVoiceInput(text);
     const syntheticEvent = {
       target: { value: text }
     } as React.ChangeEvent<HTMLTextAreaElement>;
     handleInputChange(syntheticEvent);
+    // Clear voiceInput after applying to input so user can continue typing
+    setVoiceInput('');
   };
 
   const handleDragEnter = (e: DragEvent<HTMLFormElement>) => {
@@ -154,7 +162,7 @@ export function MessageInput({
         <div className="flex-1 relative">
         <textarea
           ref={textareaRef}
-          value={input || voiceInput}
+          value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={isDragging && onImageUpload ? "Drop image here..." : placeholder}

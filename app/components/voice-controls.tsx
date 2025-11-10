@@ -22,6 +22,8 @@ export function VoiceControls({
   const [ttsAvailable, setTtsAvailable] = useState(false);
   const [sttAvailable, setSttAvailable] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [lastSpokenMessage, setLastSpokenMessage] = useState<string>('');
+  const [showHelp, setShowHelp] = useState(true);
   
   useEffect(() => {
     // Load client-only data after mount to avoid hydration mismatch
@@ -59,10 +61,17 @@ export function VoiceControls({
   }, []);
   
   useEffect(() => {
-    if (autoSpeak && ttsEnabled && assistantMessage) {
-      ttsService.speak(assistantMessage);
+    // Speak assistant messages automatically when TTS is enabled
+    // Only speak if message is complete (not empty, not the same as last spoken)
+    if (ttsEnabled && assistantMessage && assistantMessage.trim() && assistantMessage !== lastSpokenMessage) {
+      // Small delay to ensure the message is fully rendered and streaming is complete
+      const timeoutId = setTimeout(() => {
+        ttsService.speak(assistantMessage);
+        setLastSpokenMessage(assistantMessage);
+      }, 200);
+      return () => clearTimeout(timeoutId);
     }
-  }, [assistantMessage, autoSpeak, ttsEnabled]);
+  }, [assistantMessage, ttsEnabled, lastSpokenMessage]);
   
   const toggleTTS = () => {
     if (ttsEnabled) {
@@ -119,23 +128,23 @@ export function VoiceControls({
   }
   
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-        {ttsAvailable && (
-          <button
-            onClick={toggleTTS}
-            className={`p-2 rounded-lg transition-colors ${
-              ttsEnabled
-                ? 'bg-blue-500 text-white hover:bg-blue-600'
-                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-            }`}
-            title={ttsEnabled ? 'Disable text-to-speech (AI responses will stop being read aloud)' : 'Enable text-to-speech (AI responses will be read aloud automatically)'}
-          >
-            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-          </button>
-        )}
-        
-        {sttAvailable && (
+    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+      {ttsAvailable && (
+        <button
+          onClick={toggleTTS}
+          className={`p-2 rounded-lg transition-colors ${
+            ttsEnabled
+              ? 'bg-blue-500 text-white hover:bg-blue-600'
+              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+          }`}
+          title={ttsEnabled ? 'Disable text-to-speech (AI responses will stop being read aloud)' : 'Enable text-to-speech (AI responses will be read aloud automatically)'}
+        >
+          {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+        </button>
+      )}
+      
+      {sttAvailable && (
+        <>
           <button
             onClick={() => {
               if (!sttEnabled) {
@@ -172,26 +181,56 @@ export function VoiceControls({
               <Mic className="w-5 h-5" />
             )}
           </button>
-        )}
-      </div>
+          {sttEnabled && (
+            <button
+              onClick={toggleSTT}
+              className="p-1.5 rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+              title="Disable speech-to-text"
+            >
+              <MicOff className="w-4 h-4" />
+            </button>
+          )}
+        </>
+      )}
+      
       {(ttsAvailable || sttAvailable) && (
-        <p className="text-xs text-gray-500 px-2">
-          {ttsAvailable && sttAvailable && (
+        <div className="flex items-center gap-1 ml-1">
+          <button
+            onClick={() => setShowHelp(!showHelp)}
+            className="text-gray-500 hover:text-gray-700 transition-colors p-0.5"
+            title={showHelp ? 'Hide voice help' : 'Show voice help'}
+          >
+            💡
+          </button>
+          {showHelp && (
             <>
-              <span className="font-medium">💡 Voice Help:</span> Click <span className="font-medium">🔊</span> to hear AI responses aloud. Click <span className="font-medium">🎤</span> to speak your problem (allow mic access when prompted).
+              <button
+                onClick={() => setShowHelp(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors text-xs p-0.5"
+                title="Hide voice help"
+              >
+                ×
+              </button>
+              <p className="text-xs text-gray-500">
+                {ttsAvailable && sttAvailable && (
+                  <>
+                    <span className="font-medium">Voice Help:</span> Click <span className="font-medium">🔊</span> to hear AI responses aloud. Click <span className="font-medium">🎤</span> to speak your problem (allow mic access when prompted).
+                  </>
+                )}
+                {ttsAvailable && !sttAvailable && (
+                  <>
+                    <span className="font-medium">Voice Help:</span> Click <span className="font-medium">🔊</span> to hear AI responses read aloud automatically.
+                  </>
+                )}
+                {!ttsAvailable && sttAvailable && (
+                  <>
+                    <span className="font-medium">Voice Help:</span> Click <span className="font-medium">🎤</span> to speak your math problem (allow microphone access when prompted).
+                  </>
+                )}
+              </p>
             </>
           )}
-          {ttsAvailable && !sttAvailable && (
-            <>
-              <span className="font-medium">💡 Voice Help:</span> Click <span className="font-medium">🔊</span> to hear AI responses read aloud automatically.
-            </>
-          )}
-          {!ttsAvailable && sttAvailable && (
-            <>
-              <span className="font-medium">💡 Voice Help:</span> Click <span className="font-medium">🎤</span> to speak your math problem (allow microphone access when prompted).
-            </>
-          )}
-        </p>
+        </div>
       )}
     </div>
   );

@@ -873,9 +873,14 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             placeholder="Type your math problem here (e.g., 2x + 5 = 13) or Drag-n-Drop problem image..."
             onImageUpload={handleImageUpload}
             showImageUpload={true}
-            assistantMessage={messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' 
-              ? messages[messages.length - 1]?.content 
-              : undefined}
+            assistantMessage={
+              messages.length > 0 && 
+              messages[messages.length - 1]?.role === 'assistant' && 
+              !isLoading && 
+              !isProcessingImage
+                ? messages[messages.length - 1]?.content 
+                : undefined
+            }
           />
         </div>
         )}
