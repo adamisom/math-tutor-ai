@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "DATABASE_URL=\"postgresql://dummy:dummy@localhost:5432/dummy\" prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -12,7 +12,7 @@
     "test:unit": "vitest run tests/unit",
     "test:dialogue": "node scripts/test-dialogue.js",
     "test:dialogue:bash": "bash scripts/test-dialogue.sh",
-    "postinstall": "prisma generate"
+    "postinstall": "DATABASE_URL=\"postgresql://dummy:dummy@localhost:5432/dummy\" prisma generate"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.41",
