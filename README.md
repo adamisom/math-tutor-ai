@@ -4,44 +4,33 @@ An intelligent math tutoring application that uses Socratic questioning to guide
 
 ## Features
 
+### Core Features
 - **Socratic Tutoring**: Guides students through problems using questions, not direct answers
 - **Math Verification**: Automatically verifies student answers using symbolic math tools
 - **Image Upload**: Upload photos of math problems for automatic extraction
 - **Multi-Problem Detection**: Handles images with multiple problems intelligently
-- **Conversation Persistence**: Saves your conversation automatically
 - **LaTeX Rendering**: Beautiful math equation rendering (feature-flagged)
+
+### Phase 6 Enhancements
+- **Conversation History**: Searchable, filterable history of past sessions with export
+- **XP System**: Gamification with points, levels, and progress tracking
+- **AI Problem Generation**: Dynamically generate new problems with variety and difficulty matching
+- **Voice Interface**: Text-to-Speech (TTS) and Speech-to-Text (STT) support
+- **Polished Intro Screen**: Engaging welcome experience with animations
 
 ## Quick Start
 
-### Prerequisites
+See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for detailed setup instructions.
 
-- Node.js 18+ and npm
-- Anthropic API key
-
-### Installation
-
-1. Clone the repository:
+**TL;DR:**
 ```bash
 git clone <repository-url>
 cd math-tutor-ai
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Create a `.env.local` file in the root directory:
-```env
-ANTHROPIC_API_KEY=your_api_key_here
-```
-
-4. Start the development server:
-```bash
+# Create .env.local with ANTHROPIC_API_KEY
 npm run dev
+# Open http://localhost:3000
 ```
-
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Development
 
@@ -51,7 +40,7 @@ npm run dev
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
-- `npm run test` - Run unit tests
+- `npm run test` - Run all unit tests (166 tests)
 - `npm run test:watch` - Run tests in watch mode
 - `npm run test:unit` - Run unit tests only
 - `npm run test:dialogue` - Run dialogue quality testing script
@@ -61,36 +50,42 @@ npm run dev
 ```
 math-tutor-ai/
 ├── app/
-│   ├── api/              # API routes
-│   │   ├── chat/         # Main chat endpoint
-│   │   └── chat/image-extract/  # Image extraction endpoint
-│   ├── components/        # React components
+│   ├── api/                    # API routes
+│   │   ├── chat/               # Main chat endpoint
+│   │   ├── chat/generate-problem/  # AI problem generation (Phase 6)
+│   │   └── chat/image-extract/ # Image extraction endpoint
+│   ├── components/             # React components
 │   │   ├── chat-interface.tsx
-│   │   ├── message-list.tsx
-│   │   ├── message-input.tsx
-│   │   ├── image-upload.tsx
-│   │   ├── problem-selector.tsx
-│   │   └── error-boundary.tsx
-│   ├── lib/              # Utility functions
-│   │   ├── prompts.ts    # AI system prompts
-│   │   ├── math-verification.ts
-│   │   ├── image-processing.ts
+│   │   ├── conversation-history.tsx  # Phase 6
+│   │   ├── xp-display.tsx      # Phase 6
+│   │   ├── voice-controls.tsx  # Phase 6
+│   │   ├── problem-generator.tsx # Phase 6
+│   │   ├── intro-screen.tsx    # Phase 6
 │   │   └── ...
-│   ├── page.tsx          # Home page
-│   └── test/             # Testing interface
-├── tests/                # Test files
-├── docs/                 # Documentation
-└── scripts/              # Utility scripts
+│   ├── lib/                    # Utility functions
+│   │   ├── prompts.ts          # AI system prompts
+│   │   ├── xp-system.ts        # Phase 6: XP calculation
+│   │   ├── conversation-history.ts  # Phase 6: History management
+│   │   ├── tts.ts              # Phase 6: Text-to-speech
+│   │   ├── stt.ts              # Phase 6: Speech-to-text
+│   │   └── ...
+│   ├── page.tsx                # Home page
+│   └── test/                   # Testing interface
+├── tests/                      # Test files (166 unit tests)
+├── docs/                       # Documentation
+└── scripts/                    # Utility scripts
 ```
 
 ## Testing
 
 ### Unit Tests
 
-Run the unit test suite:
+Run the unit test suite (166 tests):
 ```bash
 npm run test
 ```
+
+Tests cover: math verification, image processing, JSON/Latex parsing, feature flags, XP system, and problem completion detection.
 
 ### Dialogue Quality Testing
 
@@ -154,11 +149,18 @@ Optional:
 
 ## Documentation
 
-- [Architecture](./docs/Architecture.md) - Application architecture
-- [PRD](./docs/PRD.md) - Product requirements document
-- [Implementation Tasks](./docs/Implementation_Tasks.md) - Development roadmap
-- [Testing Framework Guide](./docs/Testing-Framework-Usage-Guide.md) - How to test dialogue quality
+### Setup & Development
+- [Developer Setup Guide](./DEVELOPER_SETUP.md) - Complete setup instructions
+- [Architecture](./docs/Architecture.md) - System architecture (v2.0 with Phase 6)
+- [Quick Testing Guide](./docs/Quick-Testing-Guide.md) - Manual testing procedures
+
+### Testing
+- [Testing Framework Guide](./docs/Testing-Framework-Usage-Guide.md) - Automated dialogue quality testing
 - [Socratic Evaluation Checklist](./docs/Socratic-Evaluation-Checklist.md) - Evaluation criteria
+
+### Planning
+- [PRD](./docs/PRD.md) - Product requirements document
+- [Phase 6 Enhancements Planning](./docs/Phase6-Enhancements-Planning.md) - Phase 6 feature details
 
 ## Contributing
 
