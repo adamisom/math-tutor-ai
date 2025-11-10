@@ -34,81 +34,11 @@ npm run dev
 
 ## Development
 
-### Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run test` - Run all unit tests (166 tests)
-- `npm run test:watch` - Run tests in watch mode
-- `npm run test:unit` - Run unit tests only
-- `npm run test:dialogue` - Run dialogue quality testing script
-
-### Project Structure
-
-```
-math-tutor-ai/
-├── app/
-│   ├── api/                    # API routes
-│   │   ├── chat/               # Main chat endpoint
-│   │   ├── chat/generate-problem/  # AI problem generation (Phase 6)
-│   │   └── chat/image-extract/ # Image extraction endpoint
-│   ├── components/             # React components
-│   │   ├── chat-interface.tsx
-│   │   ├── conversation-history.tsx  # Phase 6
-│   │   ├── xp-display.tsx      # Phase 6
-│   │   ├── voice-controls.tsx  # Phase 6
-│   │   ├── problem-generator.tsx # Phase 6
-│   │   ├── intro-screen.tsx    # Phase 6
-│   │   └── ...
-│   ├── lib/                    # Utility functions
-│   │   ├── prompts.ts          # AI system prompts
-│   │   ├── xp-system.ts        # Phase 6: XP calculation
-│   │   ├── conversation-history.ts  # Phase 6: History management
-│   │   ├── tts.ts              # Phase 6: Text-to-speech
-│   │   ├── stt.ts              # Phase 6: Speech-to-text
-│   │   └── ...
-│   ├── page.tsx                # Home page
-│   └── test/                   # Testing interface
-├── tests/                      # Test files (166 unit tests)
-├── docs/                       # Documentation
-└── scripts/                    # Utility scripts
-```
-
-## Testing
-
-### Unit Tests
-
-Run the unit test suite (166 tests):
-```bash
-npm run test
-```
-
-Tests cover: math verification, image processing, JSON/Latex parsing, feature flags, XP system, and problem completion detection.
-
-### Dialogue Quality Testing
-
-Test the Socratic dialogue quality systematically:
-```bash
-npm run test:dialogue
-```
-
-This will:
-- Start the dev server (if not running)
-- Cycle through all test problems
-- Show expected patterns and red flags
-- Guide you through systematic testing
-
-See `docs/Testing-Framework-Usage-Guide.md` for detailed instructions.
-
-### Manual Testing
-
-Visit `/test` for a visual testing interface with:
-- Test problem selection
-- Expected patterns and red flags
-- Pass/Fail tracking
-- Tricky input scenarios
+See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for:
+- Development scripts
+- Project structure
+- Testing procedures
+- Troubleshooting
 
 ## Deployment
 
@@ -121,13 +51,6 @@ Visit `/test` for a visual testing interface with:
 
 The app will automatically deploy on every push to your main branch.
 
-### Environment Variables
-
-Required:
-- `ANTHROPIC_API_KEY` - Your Anthropic API key
-
-Optional:
-- `NEXT_PUBLIC_ENABLE_LATEX` - Set to `"true"` to enable LaTeX rendering (default: disabled)
 
 ## Architecture
 
