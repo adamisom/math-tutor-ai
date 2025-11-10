@@ -13,14 +13,16 @@ interface IntroScreenProps {
 export function IntroScreen({ onGetStarted, onSkip }: IntroScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [animationStage, setAnimationStage] = useState<'entering' | 'visible' | 'exiting'>('entering');
-  const [hasHistory, setHasHistory] = useState(false);
-  const [totalXP, setTotalXP] = useState(0);
+  const [hasHistory] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return loadConversationHistory().sessions.length > 0;
+  });
+  const [totalXP] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    return getTotalXP();
+  });
   
   useEffect(() => {
-    const history = loadConversationHistory();
-    setHasHistory(history.sessions.length > 0);
-    setTotalXP(getTotalXP());
-    
     setTimeout(() => {
       setAnimationStage('visible');
     }, 100);
@@ -80,7 +82,7 @@ export function IntroScreen({ onGetStarted, onSkip }: IntroScreenProps) {
               AI Math Tutor
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Learn math through Socratic questioning. I'll guide you to discover solutions yourself.
+              Learn math through Socratic questioning. I&apos;ll guide you to discover solutions yourself.
             </p>
           </div>
           

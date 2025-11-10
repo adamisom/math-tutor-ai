@@ -11,7 +11,8 @@ export interface Message {
 
 export function detectProblemCompletion(
   messages: Message[],
-  currentProblem: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _currentProblem: string
 ): {
   isComplete: boolean;
   confidence: number;

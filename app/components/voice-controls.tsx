@@ -16,35 +16,41 @@ export function VoiceControls({
   autoSpeak = false,
   assistantMessage,
 }: VoiceControlsProps) {
-  const [ttsEnabled, setTtsEnabled] = useState(false);
-  const [sttEnabled, setSttEnabled] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [ttsAvailable, setTtsAvailable] = useState(false);
-  const [sttAvailable, setSttAvailable] = useState(false);
-  
-  useEffect(() => {
-    setTtsAvailable(ttsService.isAvailable());
-    setSttAvailable(sttService.isAvailable());
-    
+  const [ttsEnabled, setTtsEnabled] = useState(() => {
+    if (typeof window === 'undefined') return false;
     const ttsStored = localStorage.getItem('math-tutor-tts-settings');
-    const sttStored = localStorage.getItem('math-tutor-stt-settings');
-    
     if (ttsStored) {
-      const settings = JSON.parse(ttsStored);
-      if (settings.enabled) {
-        setTtsEnabled(true);
-        ttsService.enable();
+      try {
+        const settings = JSON.parse(ttsStored);
+        if (settings.enabled) {
+          ttsService.enable();
+          return true;
+        }
+      } catch {
+        // Ignore parse errors
       }
     }
-    
+    return false;
+  });
+  const [sttEnabled, setSttEnabled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const sttStored = localStorage.getItem('math-tutor-stt-settings');
     if (sttStored) {
-      const settings = JSON.parse(sttStored);
-      if (settings.enabled) {
-        setSttEnabled(true);
-        sttService.enable();
+      try {
+        const settings = JSON.parse(sttStored);
+        if (settings.enabled) {
+          sttService.enable();
+          return true;
+        }
+      } catch {
+        // Ignore parse errors
       }
     }
-  }, []);
+    return false;
+  });
+  const [isListening, setIsListening] = useState(false);
+  const [ttsAvailable] = useState(() => ttsService.isAvailable());
+  const [sttAvailable] = useState(() => sttService.isAvailable());
   
   useEffect(() => {
     if (autoSpeak && ttsEnabled && assistantMessage) {

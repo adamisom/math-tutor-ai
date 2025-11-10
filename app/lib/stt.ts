@@ -4,6 +4,8 @@
  * Handles voice input using browser SpeechRecognition API
  */
 
+import { getStorageItem, setStorageItem } from './local-storage';
+
 export interface STTOptions {
   continuous?: boolean;
   interimResults?: boolean;
@@ -17,12 +19,12 @@ class STTService {
   
   constructor() {
     if (typeof window !== 'undefined') {
-      const SpeechRecognition = 
-        (window as any).SpeechRecognition || 
-        (window as any).webkitSpeechRecognition;
+      const SpeechRecognitionClass = 
+        (window as Window & { SpeechRecognition?: { new(): SpeechRecognition } }).SpeechRecognition || 
+        (window as Window & { webkitSpeechRecognition?: { new(): SpeechRecognition } }).webkitSpeechRecognition;
       
-      if (SpeechRecognition) {
-        this.recognition = new SpeechRecognition();
+      if (SpeechRecognitionClass) {
+        this.recognition = new SpeechRecognitionClass();
         this.setupRecognition();
         this.loadSettings();
       }
@@ -66,9 +68,9 @@ class STTService {
       this.isListening = false;
     };
     
-    this.recognition.onerror = (event) => {
-      const error = (event as any).error;
-      onError?.(error);
+    this.recognition.onerror = (event: Event) => {
+      const errorEvent = event as SpeechRecognitionErrorEvent;
+      onError?.(errorEvent.error);
       this.isListening = false;
     };
     
@@ -88,7 +90,7 @@ class STTService {
     if (this.recognition && this.isListening) {
       try {
         this.recognition.stop();
-      } catch (error) {
+      } catch {
         // Ignore errors when stopping
       }
       this.isListening = false;
@@ -97,26 +99,19 @@ class STTService {
   
   private loadSettings() {
     if (typeof window === 'undefined') return;
-    try {
-      const stored = localStorage.getItem('math-tutor-stt-settings');
-      if (stored) {
-        const settings = JSON.parse(stored);
-        this.isEnabled = settings.enabled || false;
-      }
-    } catch (error) {
-      console.warn('Failed to load STT settings:', error);
-    }
+    
+    const settings = getStorageItem<{ enabled?: boolean }>(
+      'math-tutor-stt-settings',
+      {}
+    );
+    
+    this.isEnabled = settings.enabled || false;
   }
   
   private saveSettings() {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem('math-tutor-stt-settings', JSON.stringify({
-        enabled: this.isEnabled,
-      }));
-    } catch (error) {
-      console.warn('Failed to save STT settings:', error);
-    }
+    setStorageItem('math-tutor-stt-settings', {
+      enabled: this.isEnabled,
+    });
   }
 }
 

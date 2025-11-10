@@ -4,6 +4,8 @@
  * Handles speaking assistant responses using browser SpeechSynthesis API
  */
 
+import { getStorageItem, setStorageItem } from './local-storage';
+
 export interface TTSOptions {
   rate?: number;
   pitch?: number;
@@ -114,28 +116,23 @@ class TTSService {
   
   private loadSettings() {
     if (typeof window === 'undefined') return;
-    try {
-      const stored = localStorage.getItem('math-tutor-tts-settings');
-      if (stored) {
-        const settings = JSON.parse(stored);
-        this.isEnabled = settings.enabled || false;
-        this.options = { ...this.options, ...settings.options };
-      }
-    } catch (error) {
-      console.warn('Failed to load TTS settings:', error);
+    
+    const settings = getStorageItem<{ enabled?: boolean; options?: Partial<TTSOptions> }>(
+      'math-tutor-tts-settings',
+      {}
+    );
+    
+    this.isEnabled = settings.enabled || false;
+    if (settings.options) {
+      this.options = { ...this.options, ...settings.options };
     }
   }
   
   private saveSettings() {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem('math-tutor-tts-settings', JSON.stringify({
-        enabled: this.isEnabled,
-        options: this.options,
-      }));
-    } catch (error) {
-      console.warn('Failed to save TTS settings:', error);
-    }
+    setStorageItem('math-tutor-tts-settings', {
+      enabled: this.isEnabled,
+      options: this.options,
+    });
   }
 }
 

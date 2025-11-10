@@ -4,24 +4,31 @@
  * Manages when to show/hide the intro screen
  */
 
+import { getStorageItem, setStorageItem, removeStorageItem } from './local-storage';
+
 const INTRO_SHOWN_KEY = 'math-tutor-intro-shown';
 const INTRO_VERSION = 1;
 
 export function shouldShowIntro(): boolean {
   if (typeof window === 'undefined') return true;
   
-  try {
-    const stored = localStorage.getItem(INTRO_SHOWN_KEY);
-    if (stored) {
-      const data = JSON.parse(stored);
+  const data = getStorageItem<{ version?: number; shownAt?: number } | null>(
+    INTRO_SHOWN_KEY,
+    null
+  );
+  
+  if (data) {
       
       if (data.version !== INTRO_VERSION) {
         return true;
       }
       
-      // Check if user has significant history
+      // Check if user has significant history (synchronous check)
       try {
+        // Import synchronously for client-side only code
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { loadConversationHistory } = require('./conversation-history');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { getTotalXP } = require('./xp-system');
         const history = loadConversationHistory();
         const totalXP = getTotalXP();
@@ -33,38 +40,25 @@ export function shouldShowIntro(): boolean {
         // If modules not available, continue with date check
       }
       
-      const daysSinceShown = (Date.now() - data.shownAt) / (1000 * 60 * 60 * 24);
+      const daysSinceShown = (Date.now() - (data.shownAt || 0)) / (1000 * 60 * 60 * 24);
       if (daysSinceShown > 30) {
         return true;
       }
       
       return false;
     }
-    return true;
-  } catch (error) {
-    console.warn('Failed to check intro status:', error);
-    return true;
-  }
+  
+  return true;
 }
 
 export function markIntroAsShown(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(INTRO_SHOWN_KEY, JSON.stringify({
-      version: INTRO_VERSION,
-      shownAt: Date.now(),
-    }));
-  } catch (error) {
-    console.warn('Failed to save intro status:', error);
-  }
+  setStorageItem(INTRO_SHOWN_KEY, {
+    version: INTRO_VERSION,
+    shownAt: Date.now(),
+  });
 }
 
 export function resetIntro(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem(INTRO_SHOWN_KEY);
-  } catch (error) {
-    console.warn('Failed to reset intro:', error);
-  }
+  removeStorageItem(INTRO_SHOWN_KEY);
 }
 

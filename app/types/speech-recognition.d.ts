@@ -47,7 +47,7 @@ interface Window {
   webkitSpeechRecognition: typeof SpeechRecognition;
 }
 
-declare var SpeechRecognition: {
+declare const SpeechRecognition: {
   prototype: SpeechRecognition;
   new (): SpeechRecognition;
 };

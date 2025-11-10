@@ -10,7 +10,8 @@ import {
   manageAttemptTracking, 
   generateProblemSignature, 
   incrementAttemptCount,
-  getCurrentProblemFromMessages 
+  getCurrentProblemFromMessages,
+  getAttemptCount
 } from '../lib/attempt-tracking';
 import { extractionHandlers, ExtractionHandlerContext } from '../lib/extraction-handlers';
 import { ConversationHistory } from './conversation-history';
@@ -21,7 +22,6 @@ import { detectProblemCompletion, determineDifficulty } from '../lib/problem-com
 import { saveConversationSession, createSessionFromMessages, loadConversationHistory } from '../lib/conversation-history';
 import { VoiceControls } from './voice-controls';
 import { ProblemGenerator } from './problem-generator';
-import { ttsService } from '../lib/tts';
 
 interface Message {
   id: string;
@@ -222,9 +222,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           
           const difficulty = determineDifficulty(currentProblem);
           const problemSig = generateProblemSignature(currentProblem);
-          const attemptCount = typeof window !== 'undefined' 
-            ? parseInt(localStorage.getItem(`attempts_${problemSig}`) || '0', 10)
-            : 0;
+          const attemptCount = getAttemptCount(problemSig);
           
           const solveXP = calculateSolveXP(difficulty, attemptCount);
           addXP(solveXP, 'solve', currentProblem);

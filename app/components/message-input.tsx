@@ -48,7 +48,10 @@ export function MessageInput({
   
   const handleSpeechResult = (text: string) => {
     setVoiceInput(text);
-    handleInputChange({ target: { value: text } } as any);
+    const syntheticEvent = {
+      target: { value: text }
+    } as React.ChangeEvent<HTMLTextAreaElement>;
+    handleInputChange(syntheticEvent);
   };
   
   return (

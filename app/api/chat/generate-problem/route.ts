@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     let problemData;
     try {
       problemData = JSON.parse(result.text);
-    } catch (parseError) {
+    } catch {
       const problemMatch = result.text.match(/problem["\s:]+"([^"]+)"/i);
       if (problemMatch) {
         problemData = {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Search, Calendar, X, Download, Trash2 } from 'lucide-react';
 import { 
   loadConversationHistory, 
@@ -15,14 +15,12 @@ interface ConversationHistoryProps {
 }
 
 export function ConversationHistory({ onSelectSession, onClose }: ConversationHistoryProps) {
-  const [sessions, setSessions] = useState<ConversationSession[]>([]);
+  const [sessions, setSessions] = useState<ConversationSession[]>(() => {
+    if (typeof window === 'undefined') return [];
+    return loadConversationHistory().sessions;
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
-  
-  useEffect(() => {
-    const history = loadConversationHistory();
-    setSessions(history.sessions);
-  }, []);
   
   const filteredSessions = sessions.filter(session => {
     const matchesSearch = 

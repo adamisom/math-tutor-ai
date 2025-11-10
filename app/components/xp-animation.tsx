@@ -11,11 +11,9 @@ interface XPAnimationProps {
 
 export function XPAnimation({ amount, reason, onComplete }: XPAnimationProps) {
   const [isVisible, setIsVisible] = useState(true);
-  const [scale, setScale] = useState(0);
+  const [scale] = useState(1);
   
   useEffect(() => {
-    setScale(1);
-    
     const timer = setTimeout(() => {
       setIsVisible(false);
       setTimeout(() => onComplete?.(), 300);
