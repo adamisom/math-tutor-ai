@@ -244,22 +244,10 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           setTimeout(() => {
             setShowTryAnotherPrompt(true);
           }, 2000);
-        } else if (!completion.isComplete && !problemSolved && messages.length > 1) {
-          // Award attempt XP (only after first message)
-          const problemSig = generateProblemSignature(currentProblem);
-          const attemptCount = typeof window !== 'undefined'
-            ? parseInt(localStorage.getItem(`attempts_${problemSig}`) || '0', 10)
-            : 0;
-          
-          if (attemptCount > 0) {
-            const attemptXP = calculateAttemptXP(attemptCount);
-            addXP(attemptXP, 'attempt', currentProblem);
-            showXP(attemptXP, 'attempt');
-          }
         }
       }
     }
-  }, [messages, isLoading, problemSolved, currentSessionId]);
+  }, [messages, isLoading, problemSolved, currentSessionId, showXP]);
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -410,11 +398,15 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       const currentProblem = getCurrentProblemFromMessages(newMessages);
       const attemptTracking = manageAttemptTracking(newMessages, previousProblem || undefined);
       
-      // If this looks like an answer (not a new problem), increment attempt count
+      // If this looks like an answer (not a new problem), increment attempt count and award XP
       const looksLikeAnswer = problemText.trim().length < 50 && (problemText.includes('=') || /\d+/.test(problemText));
       if (looksLikeAnswer && !attemptTracking.isNewProblem && currentProblem) {
         const problemSig = generateProblemSignature(currentProblem);
-        incrementAttemptCount(problemSig);
+        const newAttemptCount = incrementAttemptCount(problemSig);
+        // Award attempt XP
+        const attemptXP = calculateAttemptXP(newAttemptCount);
+        addXP(attemptXP, 'attempt', currentProblem);
+        showXP(attemptXP, 'attempt');
       }
       
       // Update previous problem if this is a new one

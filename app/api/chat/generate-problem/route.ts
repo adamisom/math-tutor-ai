@@ -77,7 +77,6 @@ export async function POST(req: NextRequest) {
       model: anthropic('claude-sonnet-4-20250514'),
       prompt: fullPrompt,
       temperature: 0.8,
-      maxTokens: 500,
     });
     
     let problemData;
