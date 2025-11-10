@@ -95,8 +95,16 @@ export async function syncLocalStorageToServer(): Promise<void> {
   const localHistory = loadConversationHistory();
   const localXP = getXPState();
 
+  console.log('[Sync] Starting localStorage to database sync...', {
+    conversations: localHistory.sessions.length,
+    xp: localXP.totalXP,
+    level: localXP.level,
+    transactions: localXP.transactions?.length || 0,
+    xpStateObject: localXP
+  });
+
   try {
-    await fetch('/api/sync', {
+    const response = await fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -104,8 +112,19 @@ export async function syncLocalStorageToServer(): Promise<void> {
         xp: localXP,
       }),
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Sync failed: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    console.log('[Sync] ✅ Successfully synced to database:', {
+      conversationsSynced: result.conversationsSynced || localHistory.sessions.length,
+      xpSynced: result.xpSynced !== undefined ? result.xpSynced : true
+    });
   } catch (error) {
-    console.error('Failed to sync localStorage to server:', error);
+    console.error('[Sync] ❌ Failed to sync localStorage to server:', error);
     throw error;
   }
 }

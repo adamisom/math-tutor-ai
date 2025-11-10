@@ -13,6 +13,24 @@ export function XPDisplay() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     setTotalXP(getTotalXP());
+    
+    // Listen for storage changes (e.g., when XP is loaded from database on login)
+    const handleStorageChange = () => {
+      setTotalXP(getTotalXP());
+    };
+    
+    // Listen for custom event when XP is updated (same-tab updates)
+    const handleXPUpdate = () => {
+      setTotalXP(getTotalXP());
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('xp-updated', handleXPUpdate);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('xp-updated', handleXPUpdate);
+    };
   }, []);
 
   const level = calculateLevel(totalXP);

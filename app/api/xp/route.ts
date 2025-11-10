@@ -5,17 +5,22 @@ import { prisma } from '../../lib/prisma';
 export async function GET() {
   try {
     const session = await requireAuth();
-    // Use upsert to get or create default XP state
-    const xpState = await prisma.xPState.upsert({
+    // Try to find existing XP state
+    let xpState = await prisma.xPState.findUnique({
       where: { userId: session.user.id },
-      update: {},
-      create: {
-        userId: session.user.id,
-        totalXP: 0,
-        level: 1,
-        transactions: [],
-      },
     });
+    
+    // If no XP state exists, create default one
+    if (!xpState) {
+      xpState = await prisma.xPState.create({
+        data: {
+          userId: session.user.id,
+          totalXP: 0,
+          level: 1,
+          transactions: [],
+        },
+      });
+    }
 
     return Response.json(xpState);
   } catch (error) {

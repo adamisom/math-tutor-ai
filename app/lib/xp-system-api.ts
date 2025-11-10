@@ -11,13 +11,23 @@ export async function saveXPStateHybrid(xpState: XPState, isAuthenticated: boole
   // If authenticated, also save to database
   if (isAuthenticated) {
     try {
-      await fetch('/api/xp', {
+      const response = await fetch('/api/xp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(xpState),
       });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      const saved = await response.json();
+      console.log('[saveXPStateHybrid] Saved to database:', {
+        totalXP: saved.totalXP,
+        level: saved.level
+      });
     } catch (error) {
-      console.warn('Failed to save XP to database, using localStorage only:', error);
+      console.error('[saveXPStateHybrid] Failed to save XP to database:', error);
+      console.warn('XP saved to localStorage only');
     }
   }
 }
@@ -31,19 +41,29 @@ export async function loadXPStateHybrid(isAuthenticated: boolean): Promise<XPSta
       const response = await fetch('/api/xp');
       if (response.ok) {
         const xpState = await response.json();
-        return {
+        console.log('[loadXPStateHybrid] Loaded from database:', {
           totalXP: xpState.totalXP,
           level: xpState.level,
-          transactions: xpState.transactions,
+          transactionsCount: Array.isArray(xpState.transactions) ? xpState.transactions.length : 0
+        });
+        return {
+          totalXP: xpState.totalXP || 0,
+          level: xpState.level || 1,
+          transactions: Array.isArray(xpState.transactions) ? xpState.transactions : [],
         };
+      } else {
+        const errorText = await response.text();
+        console.warn('[loadXPStateHybrid] Failed to load XP from database:', response.status, errorText);
       }
     } catch (error) {
-      console.warn('Failed to load XP from database, falling back to localStorage:', error);
+      console.warn('[loadXPStateHybrid] Failed to load XP from database, falling back to localStorage:', error);
     }
   }
 
   // Fallback to localStorage
   const { getXPState } = await import('./xp-system');
-  return getXPState();
+  const localXP = getXPState();
+  console.log('[loadXPStateHybrid] Using localStorage fallback:', localXP);
+  return localXP;
 }
 
