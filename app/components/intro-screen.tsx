@@ -13,16 +13,19 @@ interface IntroScreenProps {
 export function IntroScreen({ onGetStarted, onSkip }: IntroScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [animationStage, setAnimationStage] = useState<'entering' | 'visible' | 'exiting'>('entering');
-  const [hasHistory] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return loadConversationHistory().sessions.length > 0;
-  });
-  const [totalXP] = useState(() => {
-    if (typeof window === 'undefined') return 0;
-    return getTotalXP();
-  });
+  const [hasHistory, setHasHistory] = useState(false);
+  const [totalXP, setTotalXP] = useState(0);
+  const [sessionCount, setSessionCount] = useState(0);
   
   useEffect(() => {
+    // Load client-only data after mount to avoid hydration mismatch
+    // This is necessary to prevent server/client HTML mismatch
+    const history = loadConversationHistory();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHasHistory(history.sessions.length > 0);
+    setTotalXP(getTotalXP());
+    setSessionCount(history.sessions.length);
+    
     setTimeout(() => {
       setAnimationStage('visible');
     }, 100);
@@ -93,7 +96,7 @@ export function IntroScreen({ onGetStarted, onSkip }: IntroScreenProps) {
                 <div className="text-sm text-gray-600">Total XP</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">{loadConversationHistory().sessions.length}</div>
+                <div className="text-2xl font-bold text-purple-600">{sessionCount}</div>
                 <div className="text-sm text-gray-600">Problems Solved</div>
               </div>
             </div>
