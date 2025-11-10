@@ -40,7 +40,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [previousProblem, setPreviousProblem] = useState<string | null>(null);
   const [showStillThinking, setShowStillThinking] = useState(false);
   const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -169,7 +168,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   // Save conversation changes (both old and new systems)
   useEffect(() => {
     if (messages.length > 0) {
-      setHasUnsavedChanges(true);
       const timer = setTimeout(() => {
         // Save to old format for backward compatibility
         const conversationMessages: ConversationMessage[] = messages.map(msg => ({
@@ -202,8 +200,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             saveConversationSession(newSession);
           }
         }
-        
-        setHasUnsavedChanges(false);
       }, 1000);
       return () => clearTimeout(timer);
     }
@@ -259,7 +255,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     setMessages([]);
     setPreviousProblem(null);
     clearConversation();
-    setHasUnsavedChanges(false);
     setError(null);
     setShowStillThinking(false);
     setConversationState('CHATTING');
@@ -572,7 +567,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         // Reset state
         setMessages([]);
         setPreviousProblem(null);
-        setHasUnsavedChanges(false);
         setError(null);
         
         console.log('[Dev] localStorage cleared');
@@ -603,9 +597,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             </button>
           )}
           <XPDisplay />
-          {hasUnsavedChanges && (
-            <span className="text-xs text-gray-500">Saving...</span>
-          )}
           <button
             onClick={() => setShowHistory(true)}
             className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
