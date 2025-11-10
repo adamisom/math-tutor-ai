@@ -25,11 +25,13 @@ openssl rand -base64 32
 
 ```bash
 # Generate Prisma client
-npx prisma generate
+npx dotenv -e .env.local -- npx prisma generate
 
 # Create database tables
-npx prisma migrate dev --name init
+npx dotenv -e .env.local -- npx prisma migrate dev --name init
 ```
+
+**Note:** Using `dotenv-cli` to load `.env.local` for Prisma commands.
 
 ### 1.3 Start App
 
