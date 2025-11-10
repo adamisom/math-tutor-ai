@@ -1,11 +1,11 @@
 # AI Math Tutor - System Architecture
 ## Client-Server Interactions & AI Integration Points
 
-**Version:** 2.0  
+**Version:** 3.0  
 **Date:** January 2025  
-**Last Updated:** Phase 6 Enhancements (XP System, Conversation History, Voice Interface, AI Problem Generation, Intro Screen)  
-**Scope:** System design, data flows, AI integration architecture  
-**Companion Docs:** cursor-prd-comprehensive.md, AI_Math_Tutor_Implementation_Tasks.md, Phase6-Enhancements-Planning.md
+**Last Updated:** Auth Implementation (Authentication, Database, Hybrid Storage)  
+**Scope:** System design, data flows, AI integration architecture, authentication & persistence  
+**Companion Docs:** cursor-prd-comprehensive.md, AI_Math_Tutor_Implementation_Tasks.md, Phase6-Enhancements-Planning.md, Auth-Implementation-Planning.md
 
 ---
 
@@ -19,9 +19,10 @@
 7. [Streaming Response Architecture](#streaming-response-architecture)
 8. [AI Decision Logic](#ai-decision-logic)
 9. [Phase 6 Enhancements](#phase-6-enhancements)
-10. [Security Architecture](#security-architecture)
-11. [Performance & Scaling Considerations](#performance--scaling-considerations)
-12. [Error Propagation & Recovery](#error-propagation--recovery)
+10. [Authentication & Database Architecture](#authentication--database-architecture)
+11. [Security Architecture](#security-architecture)
+12. [Performance & Scaling Considerations](#performance--scaling-considerations)
+13. [Error Propagation & Recovery](#error-propagation--recovery)
 
 ---
 
@@ -64,7 +65,7 @@ graph TB
 | **AI-First Design** | Claude AI at the core of all interactions | Socratic tutoring requires intelligent dialogue |
 | **Edge-Optimized** | Vercel Edge functions for low latency | Fast response times critical for learning flow |
 | **Stateless Server** | No server-side session storage | Simplifies deployment, scales horizontally |
-| **Client-Side State** | React + localStorage for persistence | Reduces server complexity, works offline |
+| **Client-Side State** | React + localStorage for persistence | Reduces server complexity, supports anonymous users |
 | **Streaming-Native** | Real-time AI response streaming | Natural conversation feel, reduces perceived latency |
 | **Fail-Safe Design** | Multiple fallback layers | Graceful degradation for educational continuity |
 
@@ -892,6 +893,120 @@ Home (page.tsx)
   Response: { problem, type, difficulty }
   Uses: Claude AI (claude-sonnet-4-20250514)
 ```
+
+---
+
+## Authentication & Database Architecture
+
+### **Overview**
+
+The application now supports user authentication with Google OAuth and hybrid data storage (localStorage + PostgreSQL database). This enables cross-device sync for authenticated users while anonymous users can still use the app with localStorage-only persistence (data persists across page refreshes, but the app requires network connectivity for AI interactions).
+
+### **Authentication Stack**
+
+- **NextAuth.js v5**: Authentication framework with Google OAuth provider
+- **Prisma**: ORM for database operations
+- **PostgreSQL**: Database for user data, conversations, and XP state
+- **Hybrid Storage**: localStorage (always) + database (when authenticated)
+
+### **Data Storage Strategy**
+
+```mermaid
+graph TB
+    User[User Action]
+    LocalStorage[localStorage]
+    Database[(PostgreSQL)]
+    
+    User --> LocalStorage
+    User -->|If Authenticated| Database
+    
+    LocalStorage -->|Sync on Login| Database
+    Database -->|Fallback if Error| LocalStorage
+```
+
+**Storage Rules:**
+1. **Always save to localStorage** - Persists data across page refreshes, supports anonymous users
+2. **If authenticated, also save to database** - Enables cross-device sync
+3. **On login, sync localStorage → database** - Migrates existing data
+4. **On database failure, fallback to localStorage** - Graceful degradation
+
+### **Database Schema**
+
+```prisma
+model User {
+  id            String
+  email         String? @unique
+  name          String?
+  image         String?
+  conversations Conversation[]
+  xpState       XPState?
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Conversation {
+  id          String
+  userId      String
+  title       String
+  problemText String
+  messages    Json
+  completed   Boolean
+  xpEarned    Int
+  createdAt   DateTime
+  updatedAt   DateTime
+}
+
+model XPState {
+  id           String   @unique
+  userId       String   @unique
+  totalXP      Int
+  level        Int
+  transactions Json
+  updatedAt    DateTime
+}
+```
+
+### **API Routes**
+
+- `/api/auth/[...nextauth]` - NextAuth authentication handlers
+- `/api/conversations` - CRUD operations for conversation sessions
+- `/api/xp` - Get/update XP state
+- `/api/sync` - Sync localStorage data to database on login
+
+### **Hybrid Storage Implementation**
+
+**Conversation History:**
+- `saveConversationSessionHybrid()` - Saves to both localStorage and database
+- `loadConversationHistoryHybrid()` - Loads from database (if authenticated) or localStorage
+- `syncLocalStorageToServer()` - Syncs all localStorage data on login
+
+**XP System:**
+- `saveXPStateHybrid()` - Saves to both localStorage and database
+- `loadXPStateHybrid()` - Loads from database (if authenticated) or localStorage
+
+### **User Flow**
+
+1. **Anonymous User:**
+   - Uses app without signing in
+   - All data stored in localStorage
+   - Data persists across page refreshes
+   - No cross-device sync
+   - Requires network for AI interactions
+
+2. **Sign In:**
+   - Click "Sign In" → Google OAuth flow
+   - On success, localStorage data syncs to database
+   - Future actions save to both localStorage and database
+
+3. **Authenticated User:**
+   - Data persists in database
+   - Accessible from any device
+   - localStorage still used for session persistence
+
+4. **Sign Out:**
+   - Returns to anonymous mode
+   - localStorage continues to work
+   - Database data remains (for future login)
 
 ---
 

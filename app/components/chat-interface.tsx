@@ -19,9 +19,13 @@ import { XPDisplay } from './xp-display';
 import { XPAnimation, useXPAnimation } from './xp-animation';
 import { addXP, calculateAttemptXP, calculateSolveXP } from '../lib/xp-system';
 import { detectProblemCompletion, determineDifficulty } from '../lib/problem-completion';
-import { saveConversationSession, createSessionFromMessages, loadConversationHistory } from '../lib/conversation-history';
+import { createSessionFromMessages } from '../lib/conversation-history';
+import { saveConversationSessionHybrid, updateConversationSessionHybrid, loadConversationHistoryHybrid, syncLocalStorageToServer } from '../lib/conversation-history-api';
+import { saveXPStateHybrid } from '../lib/xp-system-api';
 import { VoiceControls } from './voice-controls';
 import { ProblemGenerator } from './problem-generator';
+import { AuthButton } from './auth-button';
+import { useSession } from 'next-auth/react';
 
 interface Message {
   id: string;
@@ -36,6 +40,8 @@ interface ChatInterfaceProps {
 }
 
 export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as ChatInterfaceProps) {
+  const { data: session } = useSession();
+  const isAuthenticated = !!session?.user;
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -164,11 +170,19 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     }
   }, [isLoading, showStillThinking]);
 
+  // Sync localStorage to server on login
+  useEffect(() => {
+    if (isAuthenticated) {
+      syncLocalStorageToServer().catch(err => {
+        console.warn('Failed to sync localStorage to server:', err);
+      });
+    }
+  }, [isAuthenticated]);
 
-  // Save conversation changes (both old and new systems)
+  // Save conversation changes (both old and new systems - hybrid storage)
   useEffect(() => {
     if (messages.length > 0) {
-      const timer = setTimeout(() => {
+      const timer = setTimeout(async () => {
         // Save to old format for backward compatibility
         const conversationMessages: ConversationMessage[] = messages.map(msg => ({
           role: msg.role,
@@ -176,11 +190,11 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         }));
         saveConversation(conversationMessages);
         
-        // Save to new conversation history system
+        // Save to new conversation history system (hybrid: localStorage + database)
         const currentProblem = getCurrentProblemFromMessages(messages);
         if (currentProblem) {
           if (currentSessionId) {
-            const history = loadConversationHistory();
+            const history = await loadConversationHistoryHybrid(isAuthenticated);
             const session = history.sessions.find(s => s.id === currentSessionId);
             if (session) {
               session.messages = messages.map(msg => ({
@@ -189,7 +203,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
                 timestamp: Date.now(),
               }));
               session.updatedAt = Date.now();
-              saveConversationSession(session);
+              await updateConversationSessionHybrid(session, isAuthenticated);
             }
           } else if (messages.length > 0 && messages[0].role === 'user') {
             const newSession = createSessionFromMessages(
@@ -197,13 +211,13 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
               currentProblem
             );
             setCurrentSessionId(newSession.id);
-            saveConversationSession(newSession);
+            await saveConversationSessionHybrid(newSession, isAuthenticated);
           }
         }
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [messages, currentSessionId]);
+  }, [messages, currentSessionId, isAuthenticated]);
   
   // Check for problem completion and award XP
   useEffect(() => {
@@ -224,15 +238,28 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           addXP(solveXP, 'solve', currentProblem);
           showXP(solveXP, 'solve');
           
-          // Update session
-          if (currentSessionId) {
-            const history = loadConversationHistory();
-            const session = history.sessions.find(s => s.id === currentSessionId);
-            if (session) {
-              session.completed = true;
-              session.xpEarned = solveXP;
-              saveConversationSession(session);
+          // Save XP to database if authenticated
+          import('../lib/xp-system').then(({ getXPState }) => {
+            const xpState = getXPState();
+            if (xpState) {
+              saveXPStateHybrid(xpState, isAuthenticated).catch(err => {
+                console.warn('Failed to save XP to database:', err);
+              });
             }
+          });
+          
+          // Update session (hybrid storage)
+          if (currentSessionId) {
+            loadConversationHistoryHybrid(isAuthenticated).then(history => {
+              const session = history.sessions.find(s => s.id === currentSessionId);
+              if (session) {
+                session.completed = true;
+                session.xpEarned = solveXP;
+                updateConversationSessionHybrid(session, isAuthenticated).catch(err => {
+                  console.warn('Failed to update session:', err);
+                });
+              }
+            });
           }
           
           setTimeout(() => {
@@ -241,7 +268,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         }
       }
     }
-  }, [messages, isLoading, problemSolved, currentSessionId, showXP]);
+  }, [messages, isLoading, problemSolved, currentSessionId, showXP, isAuthenticated]);
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -400,6 +427,16 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
         const attemptXP = calculateAttemptXP(newAttemptCount);
         addXP(attemptXP, 'attempt', currentProblem);
         showXP(attemptXP, 'attempt');
+        
+        // Save XP to database if authenticated
+        import('../lib/xp-system').then(({ getXPState }) => {
+          const xpState = getXPState();
+          if (xpState) {
+            saveXPStateHybrid(xpState, isAuthenticated).catch(err => {
+              console.warn('Failed to save XP to database:', err);
+            });
+          }
+        });
       }
       
       // Update previous problem if this is a new one
@@ -597,6 +634,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             </button>
           )}
           <XPDisplay />
+          <AuthButton />
           <button
             onClick={() => setShowHistory(true)}
             className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"

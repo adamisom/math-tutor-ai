@@ -28,7 +28,7 @@
   - Attempt tracking (`attempts_*`)
 - **Architecture:** Stateless Next.js server, no database
 - **Deployment:** Vercel (serverless functions)
-- **User Experience:** Works offline, no account needed
+- **User Experience:** No account needed, data persists in browser
 
 ### Current Limitations
 - ❌ Data tied to specific browser/device
@@ -475,7 +475,7 @@ export function ChatInterface() {
   
   // Save conversation
   const saveConversation = async (session: ConversationSession) => {
-    // Always save to localStorage (for offline support)
+    // Always save to localStorage (for anonymous users)
     saveToLocalStorage(session);
     
     // If authenticated, also save to server
@@ -512,8 +512,8 @@ export function ChatInterface() {
 ### Hybrid Approach (Best of Both Worlds)
 **Keep localStorage for:**
 - Anonymous users
-- Offline support
 - Fast initial load
+- Session persistence
 
 **Use server for:**
 - Authenticated users

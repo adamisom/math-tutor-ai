@@ -18,6 +18,12 @@ An intelligent math tutoring application that uses Socratic questioning to guide
 - **Voice Interface**: Text-to-Speech (TTS) and Speech-to-Text (STT) support
 - **Polished Intro Screen**: Engaging welcome experience with animations
 
+### Authentication & Database (Latest)
+- **User Authentication**: Sign in with Google OAuth for cross-device sync
+- **Hybrid Storage**: localStorage + PostgreSQL database
+- **Session Persistence**: Data persists across page refreshes (localStorage for anonymous, database for authenticated)
+- **Cross-Device Sync**: Authenticated users can access conversations and XP from any device
+
 ## Quick Start
 
 See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for detailed setup instructions.
@@ -27,10 +33,20 @@ See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for detailed setup instructions.
 git clone <repository-url>
 cd math-tutor-ai
 npm install
-# Create .env.local with ANTHROPIC_API_KEY
+# Create .env.local with required variables (see DEVELOPER_SETUP.md)
+npx prisma generate
+npx prisma migrate dev
 npm run dev
 # Open http://localhost:3000
 ```
+
+**Required Environment Variables:**
+- `ANTHROPIC_API_KEY` - For Claude AI
+- `DATABASE_URL` - PostgreSQL connection string
+- `NEXTAUTH_URL` - App URL (e.g., http://localhost:3000)
+- `NEXTAUTH_SECRET` - Random secret (generate with `openssl rand -base64 32`)
+- `GOOGLE_CLIENT_ID` - Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
 
 ## Development
 
@@ -46,8 +62,15 @@ See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for:
 
 1. Push your code to GitHub
 2. Import your repository in [Vercel](https://vercel.com)
-3. Add environment variable: `ANTHROPIC_API_KEY`
-4. Deploy!
+3. Add environment variables:
+   - `ANTHROPIC_API_KEY`
+   - `DATABASE_URL` (use Vercel Postgres)
+   - `NEXTAUTH_URL` (your production URL)
+   - `NEXTAUTH_SECRET`
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+4. Run database migrations: `npx prisma migrate deploy`
+5. Deploy!
 
 The app will automatically deploy on every push to your main branch.
 

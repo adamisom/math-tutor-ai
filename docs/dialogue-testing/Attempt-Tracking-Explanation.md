@@ -59,7 +59,7 @@ const systemPrompt = getSocraticPrompt({
 
 - **Client-side:** Persistence + fast access
 - **Server-side:** Prompt adjustment based on attempt count
-- **Together:** Complete solution that works offline and adjusts prompts
+- **Together:** Complete solution that persists across sessions and adjusts prompts
 
 ## Current Implementation Status
 
