@@ -392,7 +392,7 @@ export function verifyCalculation(
 } {
   try {
     // First, convert mixed numbers to proper format (e.g., "2 1/3" -> "2 + 1/3")
-    let processedExpression = convertMixedNumbers(expression);
+    const processedExpression = convertMixedNumbers(expression);
     
     // Clean the expression (handle common math operators)
     const cleanedExpression = processedExpression
@@ -409,7 +409,7 @@ export function verifyCalculation(
     // Also convert mixed numbers in claimed result
     let claimedExpr;
     try {
-      let processedClaimed = convertMixedNumbers(claimedResult);
+      const processedClaimed = convertMixedNumbers(claimedResult);
       const cleanedClaimed = processedClaimed.trim().replace(/\s+/g, '');
       claimedExpr = nerdamer(cleanedClaimed);
     } catch {

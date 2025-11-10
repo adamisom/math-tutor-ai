@@ -3,6 +3,8 @@
 import React, { useEffect, useRef } from 'react';
 import { User, Bot, Loader2 } from 'lucide-react';
 import { parseToolCallBlocks } from '../lib/tool-call-injection';
+import { isLaTeXEnabled } from '../lib/feature-flags';
+import { InlineMath, BlockMath } from 'react-katex';
 
 interface Message {
   id: string;
@@ -43,9 +45,16 @@ export function MessageList({ messages, isLoading, showStillThinking = false }: 
             <Bot className="w-5 h-5 text-gray-600" />
           </div>
           <div className="flex-1 max-w-md sm:max-w-lg">
-            <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm mr-6 sm:mr-8 flex items-center gap-3">
-              <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-              <span className="text-gray-600 text-sm font-medium">Thinking...</span>
+            <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm mr-6 sm:mr-8">
+              {/* Skeleton loader */}
+              <div className="flex items-center gap-3 mb-2">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                <span className="text-gray-600 text-sm font-medium">Thinking...</span>
+              </div>
+              <div className="space-y-2 animate-pulse">
+                <div className="h-3 bg-gray-200 rounded w-3/4" />
+                <div className="h-3 bg-gray-200 rounded w-1/2" />
+              </div>
             </div>
           </div>
         </div>
@@ -103,9 +112,17 @@ function MessageBubble({ message, isLastMessage, isLoading }: MessageBubbleProps
         }`}>
           {/* Show content or thinking indicator */}
           {!isUser && isLastMessage && isLoading && !message.content ? (
-            <div className="flex items-center gap-2 text-gray-500">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm font-medium">Thinking...</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-medium">Thinking...</span>
+              </div>
+              {/* Skeleton loader */}
+              <div className="space-y-2 animate-pulse mt-2">
+                <div className="h-3 bg-gray-200 rounded w-full" />
+                <div className="h-3 bg-gray-200 rounded w-5/6" />
+                <div className="h-3 bg-gray-200 rounded w-4/6" />
+              </div>
             </div>
           ) : (
             <>
@@ -172,6 +189,102 @@ function parseBoldMarkdown(text: string): React.ReactNode[] {
   return parts;
 }
 
+/**
+ * Component that renders content with both LaTeX and bold markdown support
+ */
+function MathRendererWithBold({ content }: { content: string }) {
+  // First render LaTeX, which splits content into parts
+  // Then we need to apply bold markdown to text parts
+  // For simplicity, we'll parse bold markdown on the full content first,
+  // then let MathRenderer handle LaTeX within each part
+  
+  // Split by LaTeX expressions to preserve them
+  const latexRegex = /\$\$?[^$]+\$\$?/g;
+  const parts: Array<{ type: 'text' | 'math'; content: string }> = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  
+  while ((match = latexRegex.exec(content)) !== null) {
+    // Add text before match
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: content.substring(lastIndex, match.index) });
+    }
+    // Add math expression
+    parts.push({ type: 'math', content: match[0] });
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < content.length) {
+    parts.push({ type: 'text', content: content.substring(lastIndex) });
+  }
+  
+  // If no LaTeX found, just parse bold
+  if (parts.length === 0) {
+    const boldContent = parseBoldMarkdown(content);
+    return <span>{boldContent}</span>;
+  }
+  
+  // Render parts: text with bold, math with LaTeX
+  return (
+    <span>
+      {parts.map((part, index) => {
+        if (part.type === 'text') {
+          const boldContent = parseBoldMarkdown(part.content);
+          return <span key={index}>{boldContent}</span>;
+        } else {
+          // Math expression - extract the actual math content
+          const isBlock = part.content.startsWith('$$');
+          const mathContent = part.content.replace(/^\$\$?/, '').replace(/\$\$?$/, '');
+          
+          if (isBlock) {
+            return (
+              <MathErrorBoundary key={index} fallback={part.content}>
+                <div className="my-2 overflow-x-auto">
+                  <BlockMath math={mathContent} />
+                </div>
+              </MathErrorBoundary>
+            );
+          } else {
+            return (
+              <MathErrorBoundary key={index} fallback={part.content}>
+                <InlineMath math={mathContent} />
+              </MathErrorBoundary>
+            );
+          }
+        }
+      })}
+    </span>
+  );
+}
+
+class MathErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: string },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode; fallback: string }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('LaTeX rendering error:', error);
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <span className="font-mono text-sm">{this.props.fallback}</span>;
+    }
+    return this.props.children;
+  }
+}
+
 function MessageContent({ content }: MessageContentProps) {
   // Parse tool call blocks and regular content
   const parts = parseToolCallBlocks(content);
@@ -194,13 +307,28 @@ function MessageContent({ content }: MessageContentProps) {
             </div>
           );
         } else {
-          // Parse bold markdown in text content
-          const boldContent = parseBoldMarkdown(part.content);
-          return (
-            <div key={index} className="whitespace-pre-wrap">
-              {boldContent}
-            </div>
-          );
+          // Parse LaTeX first, then handle bold markdown within text parts
+          const latexEnabled = isLaTeXEnabled();
+          
+          // If LaTeX is enabled and content has math markers, use MathRenderer
+          // MathRenderer will handle LaTeX, and we'll preserve bold markdown in text parts
+          if (latexEnabled && (part.content.includes('$') || part.content.includes('$$'))) {
+            // Use MathRenderer which handles LaTeX
+            // Note: Bold markdown in text parts will still work since MathRenderer preserves text
+            return (
+              <div key={index} className="whitespace-pre-wrap">
+                <MathRendererWithBold content={part.content} />
+              </div>
+            );
+          } else {
+            // No LaTeX, just parse bold markdown
+            const boldContent = parseBoldMarkdown(part.content);
+            return (
+              <div key={index} className="whitespace-pre-wrap">
+                {boldContent}
+              </div>
+            );
+          }
         }
       })}
     </div>

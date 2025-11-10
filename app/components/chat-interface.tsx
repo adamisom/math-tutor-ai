@@ -3,18 +3,23 @@
 import { useState, useEffect, useRef } from 'react';
 import { MessageList } from './message-list';
 import { MessageInput } from './message-input';
+import { ProblemSelector, Problem, ExtractionConfirmation } from './problem-selector';
+import { ProcessedImage } from './image-upload';
 import { 
   manageAttemptTracking, 
   generateProblemSignature, 
   incrementAttemptCount,
   getCurrentProblemFromMessages 
 } from '../lib/attempt-tracking';
+import { extractionHandlers, ExtractionHandlerContext } from '../lib/extraction-handlers';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
 }
+
+type ConversationState = 'CHATTING' | 'PROBLEM_SELECTION' | 'EXTRACTION_CONFIRMATION' | 'IMAGE_UPLOAD_CONFIRMATION';
 
 interface ChatInterfaceProps {
   selectedProblem?: { id: string; problem: string } | null;
@@ -31,6 +36,14 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const thinkingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
   const stillThinkingStartTimeRef = useRef<number | null>(null);
+  
+  // Image upload state
+  const [conversationState, setConversationState] = useState<ConversationState>('CHATTING');
+  const [pendingProblems, setPendingProblems] = useState<Problem[]>([]);
+  const [extractionText, setExtractionText] = useState<string>('');
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [pendingImage, setPendingImage] = useState<ProcessedImage | null>(null);
+  const [lastFailedRequest, setLastFailedRequest] = useState<{ problemText: string; messages: Message[] } | null>(null);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -158,21 +171,121 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   };
 
 
-  // Handle form submission
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+
+  // Handle new problem - clear conversation
+  const handleNewProblem = () => {
+    setMessages([]);
+    setPreviousProblem(null);
+    clearConversation();
+    setHasUnsavedChanges(false);
+    setError(null);
+    setShowStillThinking(false);
+    setConversationState('CHATTING');
+    setPendingProblems([]);
+    setExtractionText('');
+    if (thinkingTimerRef.current) {
+      clearTimeout(thinkingTimerRef.current);
+      thinkingTimerRef.current = null;
+    }
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  };
+
+  // Handle image upload
+  const handleImageUpload = async (processedImage: ProcessedImage) => {
+    // If there's an existing conversation, ask for confirmation
+    if (messages.length > 0) {
+      setPendingImage(processedImage);
+      setConversationState('IMAGE_UPLOAD_CONFIRMATION');
+      return;
+    }
+
+    // No existing conversation, process immediately
+    await processImageUpload(processedImage);
+  };
+
+  // Process image upload (called after confirmation or if no conversation exists)
+  const processImageUpload = async (processedImage: ProcessedImage) => {
+    setIsProcessingImage(true);
+    setError(null);
+
+    try {
+      // Call image extraction API
+      const response = await fetch('/api/chat/image-extract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageBase64: processedImage.base64,
+          mimeType: processedImage.mimeType,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to extract problem from image');
+      }
+
+      const extractionResult = await response.json();
+
+      // Handle different extraction types using handler map
+      const handler = extractionHandlers[extractionResult.type as keyof typeof extractionHandlers];
+      if (handler) {
+        const context: ExtractionHandlerContext = {
+          setMessages,
+          setPendingProblems,
+          setConversationState,
+          setExtractionText,
+          submitProblem,
+        };
+        await handler(extractionResult, context);
+      }
+    } catch (err) {
+      console.error('Image extraction error:', err);
+      setError(err instanceof Error ? err : new Error('Failed to process image'));
+      const assistantMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: "I'm having trouble processing this image. Please try uploading a clearer photo or type the problem below.",
+      };
+      setMessages([assistantMessage]);
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
+
+  // Handle confirmation to start new problem with image
+  const handleConfirmImageUpload = async () => {
+    if (pendingImage) {
+      handleNewProblem();
+      setConversationState('CHATTING');
+      await processImageUpload(pendingImage);
+      setPendingImage(null);
+    }
+  };
+
+  // Handle cancellation of image upload
+  const handleCancelImageUpload = () => {
+    setPendingImage(null);
+    setConversationState('CHATTING');
+  };
+
+  // Core problem submission logic (extracted from handleFormSubmit)
+  const submitProblem = async (problemText: string) => {
+    if (!problemText.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: problemText.trim(),
     };
 
-    // Add user message and clear input
+    // Add user message
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
-    setInput('');
     setIsLoading(true);
     setError(null);
 
@@ -182,8 +295,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       const attemptTracking = manageAttemptTracking(newMessages, previousProblem || undefined);
       
       // If this looks like an answer (not a new problem), increment attempt count
-      // Simple heuristic: if it's short and contains = or numbers, might be an answer
-      const looksLikeAnswer = input.trim().length < 50 && (input.includes('=') || /\d+/.test(input));
+      const looksLikeAnswer = problemText.trim().length < 50 && (problemText.includes('=') || /\d+/.test(problemText));
       if (looksLikeAnswer && !attemptTracking.isNewProblem && currentProblem) {
         const problemSig = generateProblemSignature(currentProblem);
         incrementAttemptCount(problemSig);
@@ -262,28 +374,71 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
 
     } catch (err) {
       console.error('Chat error:', err);
-      setError(err instanceof Error ? err : new Error('Unknown error'));
+      const error = err instanceof Error ? err : new Error('Unknown error');
+      setError(error);
+      // Store the failed request for retry
+      setLastFailedRequest({ problemText, messages: newMessages });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle new problem - clear conversation
-  const handleNewProblem = () => {
-    setMessages([]);
-    setPreviousProblem(null);
-    clearConversation();
-    setHasUnsavedChanges(false);
+  // Retry last failed request
+  const handleRetry = async () => {
+    if (!lastFailedRequest) return;
     setError(null);
-    setShowStillThinking(false);
-    if (thinkingTimerRef.current) {
-      clearTimeout(thinkingTimerRef.current);
-      thinkingTimerRef.current = null;
-    }
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current);
-      hideTimerRef.current = null;
-    }
+    await submitProblem(lastFailedRequest.problemText);
+  };
+
+  // Handle problem selection
+  const handleProblemSelect = async (problem: Problem) => {
+    setConversationState('CHATTING');
+    setPendingProblems([]);
+    
+    // Add user message with selected problem
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: problem.problem,
+    };
+    setMessages([userMessage]);
+    
+    // Start conversation with selected problem
+    await submitProblem(problem.problem);
+  };
+
+  // Handle extraction confirmation
+  const handleExtractionConfirm = async (confirmedText: string) => {
+    setConversationState('CHATTING');
+    setExtractionText('');
+    
+    // Add user message with confirmed problem
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: confirmedText,
+    };
+    setMessages([userMessage]);
+    
+    // Start conversation with confirmed problem
+    await submitProblem(confirmedText);
+  };
+
+  // Handle extraction cancel
+  const handleExtractionCancel = () => {
+    setConversationState('CHATTING');
+    setExtractionText('');
+    setMessages([]);
+  };
+
+  // Form submit handler
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    
+    const textToSubmit = input.trim();
+    setInput('');
+    await submitProblem(textToSubmit);
   };
 
   // Clear all localStorage data (developer mode only)
@@ -360,29 +515,111 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           showStillThinking={showStillThinking}
         />
         
+        {/* Problem Selection UI */}
+        {conversationState === 'PROBLEM_SELECTION' && (
+          <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">
+            <ProblemSelector
+              problems={pendingProblems}
+              onSelect={handleProblemSelect}
+              onCancel={() => {
+                setConversationState('CHATTING');
+                setPendingProblems([]);
+                setMessages([]);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Extraction Confirmation UI */}
+        {conversationState === 'EXTRACTION_CONFIRMATION' && (
+          <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">
+            <ExtractionConfirmation
+              extractedText={extractionText}
+              onConfirm={handleExtractionConfirm}
+              onCancel={handleExtractionCancel}
+            />
+          </div>
+        )}
+
+        {/* Image Upload Confirmation UI */}
+        {conversationState === 'IMAGE_UPLOAD_CONFIRMATION' && pendingImage && (
+          <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <p className="text-yellow-800 font-medium mb-2">
+                Start a new problem?
+              </p>
+              <p className="text-yellow-700 text-sm">
+                You&apos;re currently working on a problem. Uploading an image will start a new problem and clear your current conversation. Are you sure you want to continue?
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmImageUpload}
+                className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+              >
+                Yes, start new problem
+              </button>
+              <button
+                onClick={handleCancelImageUpload}
+                className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Chat Input (only show when chatting) */}
+        {conversationState === 'CHATTING' && (
         <div className="border-t border-gray-200 bg-white shadow-lg p-4 sm:p-6">
-          {/* Error display */}
+          {/* Error display with retry */}
           {error && (
             <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              <p className="font-medium">Oops! Something went wrong:</p>
-              <p className="text-sm">{error.message}</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="mt-2 text-sm text-red-600 hover:text-red-800 underline"
-              >
-                Try refreshing the page
-              </button>
+              <p className="font-medium mb-1">Oops! Something went wrong:</p>
+              <p className="text-sm mb-3">{error.message}</p>
+              <div className="flex gap-2 flex-wrap">
+                {lastFailedRequest && (
+                  <button 
+                    onClick={handleRetry}
+                    disabled={isLoading}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                  >
+                    Retry
+                  </button>
+                )}
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
+                >
+                  Refresh Page
+                </button>
+              </div>
             </div>
           )}
 
+            {/* Processing image indicator with progress */}
+            {isProcessingImage && (
+              <div className="mb-4 bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Processing image and extracting problem...</p>
+                    <div className="mt-2 w-full bg-blue-200 rounded-full h-1.5">
+                      <div className="bg-blue-600 h-1.5 rounded-full animate-pulse" style={{ width: '60%' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
           {/* Welcome message for empty conversation */}
-          {messages.length === 0 && !isLoading && (
+            {messages.length === 0 && !isLoading && !isProcessingImage && (
             <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-blue-800 font-medium">Welcome to your AI Math Tutor! 👋</p>
               <p className="text-blue-700 text-sm mt-1">
                 I&apos;ll guide you through math problems using questions to help you discover solutions yourself. 
-                Try typing a problem like &quot;2x + 5 = 13&quot; to get started!
+                  Try typing a problem like &quot;2x + 5 = 13&quot; or upload an image to get started!
               </p>
             </div>
           )}
@@ -391,10 +628,13 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             input={input}
             handleInputChange={handleInputChange}
             handleSubmit={handleFormSubmit}
-            isLoading={isLoading}
+              isLoading={isLoading || isProcessingImage}
             placeholder="Type your math problem here (e.g., 2x + 5 = 13)..."
+              onImageUpload={handleImageUpload}
+              showImageUpload={true}
           />
         </div>
+        )}
       </div>
     </div>
   );

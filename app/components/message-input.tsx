@@ -2,6 +2,7 @@
 
 import { Send, Loader2 } from 'lucide-react';
 import { KeyboardEvent } from 'react';
+import { ImageUploadButton, ProcessedImage } from './image-upload';
 
 interface MessageInputProps {
   input: string;
@@ -9,6 +10,8 @@ interface MessageInputProps {
   handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   isLoading: boolean;
   placeholder?: string;
+  onImageUpload?: (processedImage: ProcessedImage) => void;
+  showImageUpload?: boolean;
 }
 
 export function MessageInput({ 
@@ -16,7 +19,9 @@ export function MessageInput({
   handleInputChange, 
   handleSubmit, 
   isLoading, 
-  placeholder = "Type your message..." 
+  placeholder = "Type your message...",
+  onImageUpload,
+  showImageUpload = false
 }: MessageInputProps) {
 
   // Handle Enter key to submit (without Shift)
@@ -40,6 +45,14 @@ export function MessageInput({
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-start">
+      {showImageUpload && onImageUpload && (
+        <div className="relative flex-shrink-0">
+          <ImageUploadButton 
+            onImageProcessed={onImageUpload}
+            disabled={isLoading}
+          />
+        </div>
+      )}
       <div className="flex-1 relative">
         <textarea
           value={input}
