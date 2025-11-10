@@ -1,7 +1,7 @@
 'use client';
 
 import { Send, Loader2 } from 'lucide-react';
-import { KeyboardEvent, useState, DragEvent } from 'react';
+import { KeyboardEvent, useState, DragEvent, useRef, useEffect } from 'react';
 import { ImageUploadButton, ProcessedImage } from './image-upload';
 import { VoiceControls } from './voice-controls';
 
@@ -28,6 +28,7 @@ export function MessageInput({
 }: MessageInputProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [voiceInput, setVoiceInput] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Handle Enter key to submit (without Shift)
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -47,6 +48,36 @@ export function MessageInput({
       }
     }
   };
+
+  // Initialize textarea height to prevent layout shift
+  useEffect(() => {
+    if (textareaRef.current) {
+      const target = textareaRef.current;
+      // Set to minimum height first
+      target.style.height = '48px';
+      // Force reflow to ensure placeholder is rendered
+      void target.offsetHeight;
+      // Get the actual scrollHeight for empty state (with placeholder)
+      const emptyScrollHeight = target.scrollHeight;
+      // Set to match scrollHeight exactly to prevent any shift when typing starts
+      target.style.height = emptyScrollHeight + 'px';
+    }
+  }, []);
+  
+  // Update height when input changes to maintain consistency
+  useEffect(() => {
+    if (textareaRef.current) {
+      const target = textareaRef.current;
+      // Reset to minimum to get accurate measurement
+      target.style.height = '48px';
+      // Force reflow
+      void target.offsetHeight;
+      // Calculate new height
+      const scrollHeight = target.scrollHeight;
+      // Set height, ensuring it matches scrollHeight exactly
+      target.style.height = Math.min(scrollHeight, 120) + 'px';
+    }
+  }, [input, voiceInput]);
   
   const handleSpeechResult = (text: string) => {
     setVoiceInput(text);
@@ -122,6 +153,7 @@ export function MessageInput({
         )}
         <div className="flex-1 relative">
         <textarea
+          ref={textareaRef}
           value={input || voiceInput}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -131,15 +163,21 @@ export function MessageInput({
             isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200'
           }`}
           style={{
-            height: '48px',
+            minHeight: '48px',
             maxHeight: '120px',
             lineHeight: '1.25',
+            boxSizing: 'border-box',
           }}
           onInput={(e) => {
             // Auto-resize textarea based on content
+            // Note: Height is managed by useEffect to prevent layout shift
             const target = e.target as HTMLTextAreaElement;
+            // Reset to minimum height to get accurate scrollHeight
             target.style.height = '48px';
+            // Force a reflow to ensure accurate measurement
+            void target.offsetHeight;
             const scrollHeight = target.scrollHeight;
+            // Set new height, ensuring it matches the exact scrollHeight to prevent layout shift
             target.style.height = Math.min(scrollHeight, 120) + 'px';
           }}
         />

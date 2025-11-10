@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { LogIn, LogOut, User, X } from 'lucide-react';
+import { LogIn, X } from 'lucide-react';
 import { SignInForm } from './signin-form';
 import { SignUpForm } from './signup-form';
 
@@ -14,28 +14,24 @@ export function AuthButton() {
   if (status === 'loading') {
     return (
       <div className="px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg flex items-center gap-2">
-        <User className="w-4 h-4 animate-pulse" />
         <span className="hidden sm:inline">Loading...</span>
       </div>
     );
   }
 
   if (session?.user) {
+    const displayName = (session.user.name || session.user.email || 'User').toLowerCase();
+    const truncatedName = displayName.length > 12 ? displayName.substring(0, 12) : displayName;
+
     return (
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg">
-          <User className="w-5 h-5" />
-          <span className="hidden sm:inline">{session.user.name || session.user.email}</span>
-        </div>
-        <button
-          onClick={() => signOut()}
-          className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-          title="Sign out"
-        >
-          <LogOut className="w-4 h-4" />
-          <span className="hidden sm:inline">Sign Out</span>
-        </button>
-      </div>
+      <button
+        onClick={() => signOut()}
+        className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex flex-col items-center min-w-[120px]"
+        title="Sign out"
+      >
+        <span className="font-medium whitespace-nowrap">{truncatedName}</span>
+        <span className="text-xs text-gray-500 whitespace-nowrap">log out</span>
+      </button>
     );
   }
 

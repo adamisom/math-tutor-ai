@@ -12,6 +12,8 @@
     "test:unit": "vitest run tests/unit",
     "test:dialogue": "node scripts/test-dialogue.js",
     "test:dialogue:bash": "bash scripts/test-dialogue.sh",
+    "db:delete-all-users": "node scripts/delete-all-users.js",
+    "db:update-user-name": "node scripts/update-user-name.js",
     "postinstall": "DATABASE_URL=\"postgresql://dummy:dummy@localhost:5432/dummy\" prisma generate"
   },
   "dependencies": {

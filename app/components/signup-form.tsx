@@ -22,12 +22,18 @@ export function SignUpForm({ onSuccess, onCancel }: SignUpFormProps) {
     setError('');
     setLoading(true);
 
+    if (!name.trim()) {
+      setError('Name is required');
+      setLoading(false);
+      return;
+    }
+
     try {
       // Create account
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify({ email, password, name: name.trim() }),
       });
 
       const data = await res.json();
@@ -69,11 +75,12 @@ export function SignUpForm({ onSuccess, onCancel }: SignUpFormProps) {
       )}
       <div>
         <label htmlFor="signup-name" className="block text-sm font-medium mb-1 text-gray-700">
-          Name (optional)
+          Name <span className="text-red-500">*</span>
         </label>
         <input
           id="signup-name"
           type="text"
+          required
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

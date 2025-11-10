@@ -25,6 +25,7 @@ import { saveXPStateHybrid } from '../lib/xp-system-api';
 import { ProblemGenerator } from './problem-generator';
 import { AuthButton } from './auth-button';
 import { AuthBanner } from './auth-banner';
+import { LoginGreeting } from './login-greeting';
 import { useSession } from 'next-auth/react';
 
 interface Message {
@@ -67,6 +68,8 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   const [problemSolved, setProblemSolved] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const { animations, showXP, removeAnimation } = useXPAnimation();
+  const [showLoginGreeting, setShowLoginGreeting] = useState(false);
+  const [previousAuthState, setPreviousAuthState] = useState(false);
 
   // Load conversation from localStorage on mount
   useEffect(() => {
@@ -170,14 +173,21 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     }
   }, [isLoading, showStillThinking]);
 
-  // Sync localStorage to server on login
+  // Sync localStorage to server on login and show greeting
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !previousAuthState) {
+      // Show login greeting animation
+      if (session?.user?.name) {
+        setShowLoginGreeting(true);
+      }
+      
+      // Sync data
       syncLocalStorageToServer().catch(err => {
         console.warn('Failed to sync localStorage to server:', err);
       });
     }
-  }, [isAuthenticated]);
+    setPreviousAuthState(isAuthenticated);
+  }, [isAuthenticated, previousAuthState, session?.user?.name]);
 
   // Save conversation changes (both old and new systems - hybrid storage)
   useEffect(() => {
@@ -622,18 +632,23 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       {/* Header */}
       <div className="border-b border-gray-200 bg-white shadow-sm p-4 flex justify-between items-center">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">AI Math Tutor</h1>
-          <p className="text-sm text-gray-600">Your Socratic learning companion</p>
+          <h1 className="text-xl font-bold text-gray-900">🤓 AI Math Tutor</h1>
+          <p className="text-sm text-gray-600">
+            <span>Your Socratic 🧙</span>
+            <br />
+            <span>learning companion</span>
+          </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {process.env.NODE_ENV === 'development' && (
             <button
               onClick={handleClearStorage}
-              className="px-3 py-2 text-xs text-gray-700 hover:text-gray-900 border border-amber-400 rounded bg-amber-50 hover:bg-amber-100 transition-colors flex flex-col items-center"
-              title="Clear all localStorage data (developer mode only)"
+              className="px-2 py-2 text-xs text-gray-700 hover:text-gray-900 border border-amber-400 rounded bg-amber-50 hover:bg-amber-100 transition-colors flex flex-col items-center mt-1"
+              title="Clear all localStorage data (dev mode only)"
             >
-              <span>Clear Storage</span>
-              <span className="text-[10px] text-amber-800">⚠️ developer mode only</span>
+              <span className="text-[9px] text-amber-800">reset data</span>
+              <span className="text-[10px] text-amber-800">⚠️ dev</span>
+              <span className="text-[10px] text-amber-800">mode only</span>
             </button>
           )}
           <XPDisplay />
@@ -647,9 +662,9 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           </button>
           <button
             onClick={handleNewProblem}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+            className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium mr-[-4px] whitespace-nowrap"
           >
-            ✨ New Problem
+            🪄✨ New Problem
           </button>
         </div>
       </div>
@@ -663,6 +678,14 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           onComplete={() => removeAnimation(anim.id)}
         />
       ))}
+
+      {/* Login Greeting Animation */}
+      {showLoginGreeting && session?.user?.name && (
+        <LoginGreeting
+          name={session.user.name}
+          onComplete={() => setShowLoginGreeting(false)}
+        />
+      )}
       
       {/* Conversation History Modal */}
       {showHistory && (
@@ -834,11 +857,10 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
 
           {/* Welcome message for empty conversation */}
             {messages.length === 0 && !isLoading && !isProcessingImage && (
-            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-blue-800 font-medium">Welcome to your AI Math Tutor! 👋</p>
-              <p className="text-blue-700 text-sm mt-1">
-                I&apos;ll guide you through math problems using questions to help you discover solutions yourself. 
-                  Try typing a problem like &quot;2x + 5 = 13&quot; or upload an image to get started!
+            <div className="mb-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-800 font-medium text-sm">Welcome to your AI Math Tutor! 👋</p>
+              <p className="text-blue-700 text-xs mt-1">
+                I&apos;ll guide you through math problems using questions to help you discover solutions yourself.
               </p>
             </div>
           )}

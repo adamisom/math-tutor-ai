@@ -24,7 +24,7 @@ export function XPDisplay() {
   // Show default state until mounted to match server render
   if (!mounted) {
     return (
-      <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+      <div className="flex items-center gap-3 px-5 py-2 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200 min-w-[200px]">
         <Trophy className="w-5 h-5 text-yellow-600" />
         <div className="flex-1">
           <div className="flex items-center justify-between text-sm mb-1">
@@ -50,7 +50,7 @@ export function XPDisplay() {
   }
   
   return (
-    <div className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
+    <div className="flex items-center gap-3 px-5 py-2 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200 min-w-[200px]">
       <Trophy className="w-5 h-5 text-yellow-600" />
       <div className="flex-1">
         <div className="flex items-center justify-between text-sm mb-1">
