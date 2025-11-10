@@ -1,7 +1,7 @@
 'use client';
 
 import { Send, Loader2 } from 'lucide-react';
-import { KeyboardEvent, useState } from 'react';
+import { KeyboardEvent, useState, DragEvent } from 'react';
 import { ImageUploadButton, ProcessedImage } from './image-upload';
 import { VoiceControls } from './voice-controls';
 
@@ -24,6 +24,8 @@ export function MessageInput({
   onImageUpload,
   showImageUpload = false
 }: MessageInputProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [voiceInput, setVoiceInput] = useState('');
 
   // Handle Enter key to submit (without Shift)
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -43,8 +45,6 @@ export function MessageInput({
       }
     }
   };
-
-  const [voiceInput, setVoiceInput] = useState('');
   
   const handleSpeechResult = (text: string) => {
     setVoiceInput(text);
@@ -53,6 +53,47 @@ export function MessageInput({
     } as React.ChangeEvent<HTMLTextAreaElement>;
     handleInputChange(syntheticEvent);
   };
+
+  const handleDragEnter = (e: DragEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isLoading && onImageUpload) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: DragEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (isLoading || !onImageUpload) return;
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        try {
+          const { processImage } = await import('../lib/image-processing');
+          const processed = await processImage(file);
+          onImageUpload(processed);
+        } catch (err) {
+          console.error('Failed to process dropped image:', err);
+        }
+      }
+    }
+  };
   
   return (
     <div className="space-y-2">
@@ -60,7 +101,14 @@ export function MessageInput({
         onSpeechResult={handleSpeechResult}
         autoSpeak={false}
       />
-      <form onSubmit={handleSubmit} className="flex gap-3 sm:gap-4 items-start">
+      <form 
+        onSubmit={handleSubmit} 
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        className={`flex gap-3 sm:gap-4 items-start ${isDragging ? 'opacity-75' : ''}`}
+      >
         {showImageUpload && onImageUpload && (
           <div className="relative flex-shrink-0">
             <ImageUploadButton 
@@ -74,13 +122,15 @@ export function MessageInput({
           value={input || voiceInput}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={isDragging && onImageUpload ? "Drop image here..." : placeholder}
           disabled={isLoading}
-          rows={1}
-          className="w-full resize-none rounded-xl border-2 border-gray-200 p-4 pr-12 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors"
+          className={`w-full resize-none rounded-xl border-2 p-4 pr-12 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm transition-colors ${
+            isDragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200'
+          }`}
           style={{
-            minHeight: '48px',
+            height: '48px',
             maxHeight: '120px',
+            lineHeight: '1.25',
           }}
           onInput={(e) => {
             // Auto-resize textarea based on content

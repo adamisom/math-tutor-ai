@@ -592,6 +592,16 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           <p className="text-sm text-gray-600">Your Socratic learning companion</p>
         </div>
         <div className="flex items-center gap-3">
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={handleClearStorage}
+              className="px-3 py-2 text-xs text-gray-700 hover:text-gray-900 border border-amber-400 rounded bg-amber-50 hover:bg-amber-100 transition-colors flex flex-col items-center"
+              title="Clear all localStorage data (developer mode only)"
+            >
+              <span>Clear Storage</span>
+              <span className="text-[10px] text-amber-800">⚠️ developer mode only</span>
+            </button>
+          )}
           <XPDisplay />
           {hasUnsavedChanges && (
             <span className="text-xs text-gray-500">Saving...</span>
@@ -601,22 +611,13 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             title="View conversation history"
           >
-            History
+            💬 Chat History
           </button>
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              onClick={handleClearStorage}
-              className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-              title="Clear all localStorage data (developer mode only)"
-            >
-              Clear Storage
-            </button>
-          )}
           <button
             onClick={handleNewProblem}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
           >
-            New Problem
+            ✨ New Problem
           </button>
         </div>
       </div>

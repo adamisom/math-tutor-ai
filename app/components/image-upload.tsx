@@ -185,6 +185,7 @@ export function ImageUploadButton({
 }: ImageUploadProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
@@ -222,25 +223,70 @@ export function ImageUploadButton({
     }
   };
 
+  const handleDragEnter = (e: DragEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!disabled && !isProcessing) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: DragEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (disabled || isProcessing) return;
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFile(files[0]);
+    }
+  };
+
   return (
     <>
       <button
         type="button"
         onClick={handleButtonClick}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         disabled={disabled || isProcessing}
-        className="flex-shrink-0 flex items-center gap-2 px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 rounded-xl border-2 border-blue-200 hover:border-blue-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md font-medium self-start"
-        title="Upload image"
-        style={{ minHeight: '48px' }}
+        className={`flex-shrink-0 flex flex-col items-center justify-center gap-0.5 px-4 bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 rounded-xl border-2 ${
+          isDragging ? 'border-blue-400 bg-blue-100' : 'border-blue-200 hover:border-blue-300'
+        } disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md font-medium self-start`}
+        title="Upload image or drag and drop"
+        style={{ 
+          height: '48px',
+          paddingTop: '12px',
+          paddingBottom: '12px',
+        }}
       >
         {isProcessing ? (
           <>
             <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm">Processing...</span>
+            <span className="text-xs">Processing...</span>
           </>
         ) : (
           <>
-            <ImagePlus className="w-5 h-5" />
-            <span className="text-sm">Upload image here</span>
+            <div className="flex items-center gap-1.5">
+              <ImagePlus className="w-4 h-4" />
+              <span className="text-xs leading-tight">Upload</span>
+            </div>
+            <span className="text-xs leading-tight text-blue-500">or Drag-n-Drop</span>
           </>
         )}
       </button>
