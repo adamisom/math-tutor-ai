@@ -13,6 +13,7 @@ interface MessageInputProps {
   placeholder?: string;
   onImageUpload?: (processedImage: ProcessedImage) => void;
   showImageUpload?: boolean;
+  assistantMessage?: string; // For TTS of last assistant message
 }
 
 export function MessageInput({ 
@@ -22,7 +23,8 @@ export function MessageInput({
   isLoading, 
   placeholder = "Type your message...",
   onImageUpload,
-  showImageUpload = false
+  showImageUpload = false,
+  assistantMessage
 }: MessageInputProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [voiceInput, setVoiceInput] = useState('');
@@ -99,7 +101,8 @@ export function MessageInput({
     <div className="space-y-2">
       <VoiceControls
         onSpeechResult={handleSpeechResult}
-        autoSpeak={false}
+        autoSpeak={!!assistantMessage}
+        assistantMessage={assistantMessage}
       />
       <form 
         onSubmit={handleSubmit} 

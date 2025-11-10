@@ -22,9 +22,9 @@ import { detectProblemCompletion, determineDifficulty } from '../lib/problem-com
 import { createSessionFromMessages } from '../lib/conversation-history';
 import { saveConversationSessionHybrid, updateConversationSessionHybrid, loadConversationHistoryHybrid, syncLocalStorageToServer } from '../lib/conversation-history-api';
 import { saveXPStateHybrid } from '../lib/xp-system-api';
-import { VoiceControls } from './voice-controls';
 import { ProblemGenerator } from './problem-generator';
 import { AuthButton } from './auth-button';
+import { AuthBanner } from './auth-banner';
 import { useSession } from 'next-auth/react';
 
 interface Message {
@@ -616,6 +616,9 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
 
   return (
     <div className="flex flex-col h-screen max-w-4xl mx-auto bg-gray-50">
+      {/* Auth Banner (only shown when not authenticated) */}
+      <AuthBanner />
+      
       {/* Header */}
       <div className="border-b border-gray-200 bg-white shadow-sm p-4 flex justify-between items-center">
         <div>
@@ -634,7 +637,7 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             </button>
           )}
           <XPDisplay />
-          <AuthButton />
+          {isAuthenticated && <AuthButton />}
           <button
             onClick={() => setShowHistory(true)}
             className="px-3 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -845,20 +848,13 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             handleInputChange={handleInputChange}
             handleSubmit={handleFormSubmit}
             isLoading={isLoading || isProcessingImage}
-            placeholder="Type your math problem here (e.g., 2x + 5 = 13)..."
+            placeholder="Type your math problem here (e.g., 2x + 5 = 13) or Drag-n-Drop problem image..."
             onImageUpload={handleImageUpload}
             showImageUpload={true}
+            assistantMessage={messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' 
+              ? messages[messages.length - 1]?.content 
+              : undefined}
           />
-          
-          {/* Voice Controls for TTS */}
-          {messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && (
-            <div className="mt-2">
-              <VoiceControls
-                autoSpeak={true}
-                assistantMessage={messages[messages.length - 1]?.content}
-              />
-            </div>
-          )}
         </div>
         )}
       </div>

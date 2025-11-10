@@ -20,24 +20,15 @@ export function ConversationHistory({ onSelectSession, onClose }: ConversationHi
     return loadConversationHistory().sessions;
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<string>('all');
   
   const filteredSessions = sessions.filter(session => {
-    const matchesSearch = 
-      session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    return session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       session.problemText.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesFilter = 
-      filterType === 'all' || session.problemType === filterType;
-    
-    return matchesSearch && matchesFilter;
   });
   
   const handleDelete = (sessionId: string) => {
-    if (confirm('Delete this conversation?')) {
-      deleteConversationSession(sessionId);
-      setSessions(prev => prev.filter(s => s.id !== sessionId));
-    }
+    deleteConversationSession(sessionId);
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
   };
   
   const handleExport = (session: ConversationSession) => {
@@ -61,7 +52,7 @@ export function ConversationHistory({ onSelectSession, onClose }: ConversationHi
           </button>
         </div>
         
-        <div className="p-4 border-b space-y-2">
+        <div className="p-4 border-b">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -72,18 +63,6 @@ export function ConversationHistory({ onSelectSession, onClose }: ConversationHi
               className="w-full pl-10 pr-4 py-2 border rounded-lg"
             />
           </div>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg"
-          >
-            <option value="all">All Types</option>
-            <option value="Algebra">Algebra</option>
-            <option value="Geometry">Geometry</option>
-            <option value="Word Problem">Word Problem</option>
-            <option value="Fractions">Fractions</option>
-            <option value="Calculus">Calculus</option>
-          </select>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4">
