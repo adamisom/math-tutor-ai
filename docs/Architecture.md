@@ -900,13 +900,13 @@ Home (page.tsx)
 
 ### **Overview**
 
-The application now supports user authentication with Google OAuth and hybrid data storage (localStorage + PostgreSQL database). This enables cross-device sync for authenticated users while anonymous users can still use the app with localStorage-only persistence (data persists across page refreshes, but the app requires network connectivity for AI interactions).
+The application now supports user authentication with email/password and hybrid data storage (localStorage + PostgreSQL database). This enables cross-device sync for authenticated users while anonymous users can still use the app with localStorage-only persistence (data persists across page refreshes, but the app requires network connectivity for AI interactions).
 
 ### **Authentication Stack**
 
-- **NextAuth.js v5**: Authentication framework with Google OAuth provider
+- **NextAuth.js v5**: Authentication framework with email/password (CredentialsProvider)
 - **Prisma**: ORM for database operations
-- **PostgreSQL**: Database for user data, conversations, and XP state
+- **PostgreSQL (Neon)**: Database for user data, conversations, and XP state (using Neon Postgres)
 - **Hybrid Storage**: localStorage (always) + database (when authenticated)
 
 ### **Data Storage Strategy**

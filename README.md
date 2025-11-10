@@ -62,7 +62,7 @@ See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for:
 2. Import your repository in [Vercel](https://vercel.com)
 3. Add environment variables:
    - `ANTHROPIC_API_KEY`
-   - `DATABASE_URL` (use Vercel Postgres)
+   - `DATABASE_URL` (use Neon Postgres or other PostgreSQL provider)
    - `NEXTAUTH_URL` (your production URL)
    - `NEXTAUTH_SECRET`
 4. Run database migrations: `npx prisma migrate deploy`
