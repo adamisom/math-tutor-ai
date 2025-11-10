@@ -747,6 +747,47 @@ interface ConversationHistoryStorage {
 - Shows animated notifications for XP gains
 - Updates level and progress bar in real-time
 
+**Problem Completion Detection:**
+
+The XP system relies on `detectProblemCompletion()` in `app/lib/problem-completion.ts` to determine when a student has successfully solved a problem. This function parses Claude's natural language responses to detect completion indicators.
+
+**⚠️ Known Limitation: False Positives**
+
+The congratulations modal (which triggers XP awards and the "Try Another Problem" prompt) can **misfire** and appear prematurely. This happens when Claude uses encouraging language during the problem-solving process, before the student has actually completed the problem.
+
+**Detection Logic:**
+
+The function uses pattern matching on Claude's response text:
+
+**Strong Indicators** (immediately trigger completion):
+- `"you successfully solved"`
+- `"problem solved"`
+- `"you solved it"`
+- `"that's the correct answer"`
+- `"that is correct"`
+- `"your answer is correct"`
+
+**Weak Indicators** (require additional confirmation):
+- `"excellent work"`
+- `"great job"`
+- `"correct!"`
+- `"that's correct"`
+- `"🎉"`
+- `"perfect!"`
+- `"well done"`
+
+For weak indicators, completion is only triggered if:
+1. The user provided a short answer (looks like a final solution)
+2. Claude explicitly confirms correctness (mentions "answer" or "solution")
+
+**Example False Positive Scenarios:**
+- Claude says "Great job!" when student makes progress (not completion)
+- Claude says "That's correct!" when verifying an intermediate step
+- Claude uses encouraging language during guidance
+
+**Future Improvement:**
+A more reliable approach would be to use explicit completion state from Claude's tool results (e.g., when `verify_equation_solution` returns `is_correct: true`), rather than parsing natural language responses.
+
 ---
 
 ### **3. AI Problem Generation**
