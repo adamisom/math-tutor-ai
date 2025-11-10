@@ -63,6 +63,11 @@ npm run test            # Run all unit tests (166 tests)
 npm run test:watch      # Run tests in watch mode
 npm run test:unit       # Run unit tests only
 npm run test:dialogue  # Run dialogue quality testing script
+
+# Database (requires DATABASE_URL in .env.local)
+npx dotenv -e .env.local -- npx prisma studio  # View database in browser (localhost:5555)
+npx dotenv -e .env.local -- npx prisma migrate dev  # Run migrations
+npx dotenv -e .env.local -- npx prisma generate  # Generate Prisma client
 ```
 
 ## Verify Setup
@@ -195,7 +200,7 @@ Voice features gracefully degrade in unsupported browsers.
 
 - Read [Architecture.md](./docs/Architecture.md) for system design
 - Check [Quick-Testing-Guide.md](./docs/Quick-Testing-Guide.md) for testing procedures
-- Review [Phase6-Enhancements-Planning.md](./docs/Phase6-Enhancements-Planning.md) for Phase 6 features
+- Review [Deployment-Guide.md](./docs/Deployment-Guide.md) for production deployment instructions
 
 ---
 

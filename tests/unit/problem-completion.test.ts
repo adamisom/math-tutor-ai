@@ -27,25 +27,25 @@ describe('detectProblemCompletion', () => {
     expect(result.isComplete).toBe(false);
   });
 
-  it('should detect completion with "excellent work"', () => {
+  it('should detect completion with "excellent work" when user provided answer and AI confirms', () => {
     const messages = [
       { role: 'user' as const, content: '2+2=4' },
-      { role: 'assistant' as const, content: 'Excellent work! You got it right.' },
+      { role: 'assistant' as const, content: 'Excellent work! Your answer is correct and you solved it.' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
-    expect(result.confidence).toBe(0.9);
+    expect(result.confidence).toBe(0.9); // "excellent work" is a strong indicator
     expect(result.completionMessage).toContain('Excellent work');
   });
 
-  it('should detect completion with "great job"', () => {
+  it('should detect completion with "great job" when user provided answer and AI confirms', () => {
     const messages = [
       { role: 'user' as const, content: 'x=5' },
-      { role: 'assistant' as const, content: 'Great job! That\'s correct.' },
+      { role: 'assistant' as const, content: 'Great job! That\'s correct. Your answer is right.' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
-    expect(result.confidence).toBe(0.9);
+    expect(result.confidence).toBe(0.7);
   });
 
   it('should detect completion with "you successfully solved"', () => {
@@ -58,34 +58,34 @@ describe('detectProblemCompletion', () => {
     expect(result.confidence).toBe(0.9);
   });
 
-  it('should detect completion with "correct!"', () => {
+  it('should detect completion with "correct!" when user provided answer and AI confirms', () => {
     const messages = [
       { role: 'user' as const, content: 'x=3' },
-      { role: 'assistant' as const, content: 'Correct! Well done.' },
+      { role: 'assistant' as const, content: 'Correct! Your answer is exactly right. Well done.' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
-    expect(result.confidence).toBe(0.9);
+    expect(result.confidence).toBe(0.7);
   });
 
-  it('should detect completion with celebration emoji', () => {
+  it('should detect completion with celebration emoji when user provided answer and AI confirms', () => {
     const messages = [
-      { role: 'user' as const, content: 'The answer is 42' },
-      { role: 'assistant' as const, content: '🎉 Perfect! You solved it!' },
+      { role: 'user' as const, content: '42' },
+      { role: 'assistant' as const, content: '🎉 Perfect! Your answer is correct. You solved it!' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
-    expect(result.confidence).toBe(0.9);
+    expect(result.confidence).toBe(0.9); // "perfect" is a strong indicator
   });
 
-  it('should detect completion with "that\'s correct"', () => {
+  it('should detect completion with "that\'s correct" when user provided answer and AI confirms', () => {
     const messages = [
       { role: 'user' as const, content: 'y=7' },
-      { role: 'assistant' as const, content: 'That\'s correct! Good thinking.' },
+      { role: 'assistant' as const, content: 'That\'s correct! Your answer is right. Good thinking.' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
-    expect(result.confidence).toBe(0.9);
+    expect(result.confidence).toBe(0.7);
   });
 
   it('should detect completion with "problem solved"', () => {
@@ -108,34 +108,34 @@ describe('detectProblemCompletion', () => {
     expect(result.confidence).toBe(0.9);
   });
 
-  it('should detect completion with "perfect!"', () => {
+  it('should detect completion with "perfect!" when user provided answer and AI confirms', () => {
     const messages = [
       { role: 'user' as const, content: 'x=8' },
-      { role: 'assistant' as const, content: 'Perfect! That\'s exactly right.' },
+      { role: 'assistant' as const, content: 'Perfect! Your answer is exactly right and correct.' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
-    expect(result.confidence).toBe(0.9);
+    expect(result.confidence).toBe(0.7);
   });
 
-  it('should detect completion with "well done"', () => {
+  it('should detect completion with "well done" when user provided answer and AI confirms', () => {
     const messages = [
-      { role: 'user' as const, content: 'The answer is 20' },
-      { role: 'assistant' as const, content: 'Well done! You got it.' },
+      { role: 'user' as const, content: '20' },
+      { role: 'assistant' as const, content: 'Well done! Your answer is correct. You got it.' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
-    expect(result.confidence).toBe(0.9);
+    expect(result.confidence).toBe(0.9); // "well done" is a strong indicator
   });
 
-  it('should detect completion with confirmation pattern', () => {
+  it('should detect completion with confirmation pattern when user provided answer', () => {
     const messages = [
       { role: 'user' as const, content: 'x=5' },
-      { role: 'assistant' as const, content: 'Yes, that is correct. You got it right.' },
+      { role: 'assistant' as const, content: 'Yes, that is correct. Your answer is right and you got it right.' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
-    expect(result.confidence).toBe(0.7); // Lower confidence for pattern match (not strong indicator)
+    expect(result.confidence).toBe(0.9); // "that is correct" is a strong indicator
   });
 
   it('should not detect completion for guidance messages', () => {
@@ -162,21 +162,22 @@ describe('detectProblemCompletion', () => {
       { role: 'assistant' as const, content: 'Let me help you think about this.' },
       { role: 'user' as const, content: 'Is it 3?' },
       { role: 'assistant' as const, content: 'Not quite, try again.' },
-      { role: 'user' as const, content: 'Is it 4?' },
-      { role: 'assistant' as const, content: 'Excellent work! That\'s correct.' },
+      { role: 'user' as const, content: '4' },
+      { role: 'assistant' as const, content: 'Excellent work! Your answer is correct and that\'s right.' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
-    expect(result.confidence).toBe(0.9);
+    expect(result.confidence).toBe(0.9); // "excellent work" is a strong indicator
   });
 
   it('should be case-insensitive', () => {
     const messages = [
       { role: 'user' as const, content: 'x=5' },
-      { role: 'assistant' as const, content: 'EXCELLENT WORK! You got it.' },
+      { role: 'assistant' as const, content: 'EXCELLENT WORK! Your answer is correct and you got it.' },
     ];
     const result = detectProblemCompletion(messages, 'test problem');
     expect(result.isComplete).toBe(true);
+    expect(result.confidence).toBe(0.9); // "excellent work" is a strong indicator
   });
 });
 

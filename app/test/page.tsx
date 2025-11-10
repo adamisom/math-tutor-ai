@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useState, useEffect } from 'react';
 import { ChatInterface } from '../components/chat-interface';
 import { ErrorBoundary } from '../components/error-boundary';
 import { CheckCircle, XCircle, AlertTriangle, RotateCcw, Copy, Check } from 'lucide-react';
@@ -702,58 +701,7 @@ const TRICKY_INPUTS = [
 const STORAGE_KEY = 'math-tutor-test-results';
 
 export default function TestPage() {
-  const { data: session, status } = useSession();
   const [isClient, setIsClient] = useState(false);
-  const [isLocalhost, setIsLocalhost] = useState(false);
-  
-  // Check if running on localhost (development only)
-  useLayoutEffect(() => {
-    setIsClient(true);
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      setIsLocalhost(
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname === '[::1]' ||
-        hostname.startsWith('192.168.') ||
-        hostname.startsWith('10.') ||
-        hostname.endsWith('.local')
-      );
-    }
-  }, []);
-  
-  // Show access denied message if not on localhost AND not authenticated as admin
-  // For now, we check localhost OR authenticated user (you can add admin role check later)
-  const isAuthorized = isLocalhost || (status === 'authenticated' && session?.user);
-  
-  if (isClient && !isAuthorized) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h1>
-          <p className="text-gray-600 mb-4">
-            The test page is only available in development mode (localhost) or for authenticated admins.
-          </p>
-          <p className="text-sm text-gray-500 mb-4">
-            This page is for admin testing and quality assessment only.
-          </p>
-          {status === 'unauthenticated' && (
-            <p className="text-sm text-blue-600 mb-4">
-              <a href="/" className="underline">Sign in</a> if you have admin access.
-            </p>
-          )}
-          <a
-            href="/"
-            className="mt-6 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Go to Home
-          </a>
-        </div>
-      </div>
-    );
-  }
-  
   const [selectedProblem, setSelectedProblem] = useState<TestProblem | null>(null);
   // Initialize with empty object to avoid hydration mismatch
   // Load from localStorage only on client side after mount
@@ -774,6 +722,11 @@ export default function TestPage() {
   });
   const [savingResult, setSavingResult] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  // Set isClient to true after mount (for hydration safety)
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Save test results to localStorage whenever they change (only on client)
   // Note: isClient is not in dependencies - we check it inside the effect to avoid cascading renders
