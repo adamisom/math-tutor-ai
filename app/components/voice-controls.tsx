@@ -94,7 +94,11 @@ export function VoiceControls({
         setIsListening(false);
       },
       (error) => {
-        console.error('Speech recognition error:', error);
+        // Only log non-permission errors to console
+        // Permission errors are handled gracefully by the service
+        if (error !== 'Permission denied. Please allow microphone access and try again.') {
+          console.warn('Speech recognition error:', error);
+        }
         setIsListening(false);
       }
     );
@@ -115,54 +119,79 @@ export function VoiceControls({
   }
   
   return (
-    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-      {ttsAvailable && (
-        <button
-          onClick={toggleTTS}
-          className={`p-2 rounded-lg transition-colors ${
-            ttsEnabled
-              ? 'bg-blue-500 text-white hover:bg-blue-600'
-              : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-          }`}
-          title={ttsEnabled ? 'Disable text-to-speech' : 'Enable text-to-speech'}
-        >
-          {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-        </button>
-      )}
-      
-      {sttAvailable && (
-        <>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+        {ttsAvailable && (
           <button
-            onClick={toggleSTT}
+            onClick={toggleTTS}
             className={`p-2 rounded-lg transition-colors ${
-              sttEnabled
-                ? 'bg-green-500 text-white hover:bg-green-600'
+              ttsEnabled
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
                 : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
             }`}
-            title={sttEnabled ? 'Disable speech-to-text' : 'Enable speech-to-text'}
+            title={ttsEnabled ? 'Disable text-to-speech (AI responses will stop being read aloud)' : 'Enable text-to-speech (AI responses will be read aloud automatically)'}
           >
-            {sttEnabled ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+            {ttsEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </button>
-          
-          {sttEnabled && (
-            <button
-              onClick={isListening ? stopListening : startListening}
-              disabled={!sttEnabled}
-              className={`p-2 rounded-lg transition-colors ${
-                isListening
-                  ? 'bg-red-500 text-white hover:bg-red-600'
-                  : 'bg-blue-500 text-white hover:bg-blue-600'
-              } disabled:opacity-50`}
-              title={isListening ? 'Stop listening' : 'Start voice input'}
-            >
-              {isListening ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Mic className="w-5 h-5" />
-              )}
-            </button>
+        )}
+        
+        {sttAvailable && (
+          <button
+            onClick={() => {
+              if (!sttEnabled) {
+                // Enable STT and start listening in one action
+                toggleSTT();
+                // Use setTimeout to ensure STT is enabled before starting
+                setTimeout(() => {
+                  startListening();
+                }, 0);
+              } else if (isListening) {
+                stopListening();
+              } else {
+                startListening();
+              }
+            }}
+            className={`p-2 rounded-lg transition-colors ${
+              isListening
+                ? 'bg-red-500 text-white hover:bg-red-600'
+                : sttEnabled
+                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+            }`}
+            title={
+              isListening
+                ? 'Stop listening (click to stop voice input)'
+                : sttEnabled
+                ? 'Start voice input (click to speak your math problem)'
+                : 'Click to enable speech-to-text and start listening (browser will ask for microphone permission)'
+            }
+          >
+            {isListening ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Mic className="w-5 h-5" />
+            )}
+          </button>
+        )}
+      </div>
+      {(ttsAvailable || sttAvailable) && (
+        <p className="text-xs text-gray-500 px-2">
+          {ttsAvailable && sttAvailable && (
+            <>
+              <span className="font-medium">💡 Voice Help:</span> Click <span className="font-medium">🔊</span> to hear AI responses aloud. Click <span className="font-medium">🎤</span> to speak your problem (allow mic access when prompted).
+            </>
           )}
-        </>
+          {ttsAvailable && !sttAvailable && (
+            <>
+              <span className="font-medium">💡 Voice Help:</span> Click <span className="font-medium">🔊</span> to hear AI responses read aloud automatically.
+            </>
+          )}
+          {!ttsAvailable && sttAvailable && (
+            <>
+              <span className="font-medium">💡 Voice Help:</span> Click <span className="font-medium">🎤</span> to speak your math problem (allow microphone access when prompted).
+            </>
+          )}
+        </p>
       )}
     </div>
   );

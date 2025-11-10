@@ -70,7 +70,18 @@ class STTService {
     
     this.recognition.onerror = (event: Event) => {
       const errorEvent = event as SpeechRecognitionErrorEvent;
-      onError?.(errorEvent.error);
+      const error = errorEvent.error;
+      
+      // Handle permission errors gracefully (not-allowed is expected when user denies access)
+      if (error === 'not-allowed') {
+        // Silently handle permission denial - user can try again after granting permission
+        this.isListening = false;
+        onError?.('Permission denied. Please allow microphone access and try again.');
+        return;
+      }
+      
+      // For other errors, pass through to handler
+      onError?.(error);
       this.isListening = false;
     };
     

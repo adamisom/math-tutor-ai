@@ -116,6 +116,63 @@ Runs all unit tests (166 tests including XP system and problem completion)
 
 ---
 
+## 🎤 Voice Interface Testing
+
+### Text-to-Speech (TTS) Testing
+
+**How to Test:**
+1. **Enable TTS**: Click the 🔊 (speaker) button in the voice controls above the text input
+   - Button should turn blue when enabled
+   - Button should turn gray when disabled
+2. **Ask a question**: Type a math problem (e.g., "Solve 2x + 5 = 13")
+3. **Wait for response**: The AI tutor will respond
+4. **Verify audio**: The AI's response should be read aloud automatically
+5. **Disable TTS**: Click the 🔊 button again to stop audio
+
+**What to Check:**
+- ✅ TTS button toggles on/off correctly
+- ✅ AI responses are read aloud when TTS is enabled
+- ✅ Audio stops when TTS is disabled
+- ✅ Multiple responses continue to be read (if enabled)
+- ✅ System volume controls work
+
+### Speech-to-Text (STT) Testing
+
+**How to Test:**
+1. **First-time setup**: Click the 🎤 (microphone) button
+   - Browser will prompt for microphone permission
+   - Click "Allow" to grant permission
+   - Button should turn blue and start listening (red with spinner)
+2. **Speak your problem**: Say something like:
+   - "Solve 2x plus 5 equals 13"
+   - "What is the derivative of x squared?"
+   - "Find the area of a circle with radius 5"
+3. **Verify transcription**: Your speech should appear in the text input field
+4. **Submit**: Press Enter or click Send to submit the transcribed problem
+5. **Test again**: Click the mic button again to start a new voice input
+
+**What to Check:**
+- ✅ Microphone permission prompt appears (first time only)
+- ✅ Button changes color when listening (blue → red with spinner)
+- ✅ Speech is accurately transcribed to text
+- ✅ Transcribed text appears in input field
+- ✅ Can submit transcribed text normally
+- ✅ Can stop listening by clicking button again
+- ✅ Error handling works if permission is denied
+
+**Browser Compatibility:**
+- ✅ **Chrome/Edge**: Full TTS + STT support
+- ✅ **Safari**: TTS supported, limited STT support
+- ⚠️ **Firefox**: Limited voice support
+- ✅ **Mobile**: iOS Safari (TTS), Android Chrome (full support)
+
+**Common Issues:**
+- **"not-allowed" error**: User denied microphone permission - click browser's permission icon in address bar to allow
+- **No transcription**: Check microphone is working, speak clearly, minimize background noise
+- **TTS not speaking**: Check system volume, verify TTS is enabled (blue button)
+
+---
+
 ## 📚 Testing Documentation Comparison
 
 ### Quick-Testing-Guide.md (This File)
@@ -168,5 +225,9 @@ Runs all unit tests (166 tests including XP system and problem completion)
 - [ ] XP system awards points correctly
 - [ ] AI problem generation works
 - [ ] Voice interface functions (if supported)
+  - [ ] TTS reads AI responses aloud when enabled
+  - [ ] STT transcribes speech to text accurately
+  - [ ] Microphone permission handling works
+  - [ ] Voice controls are clear and intuitive
 - [ ] Intro screen shows/hides appropriately
 
