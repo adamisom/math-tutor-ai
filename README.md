@@ -19,7 +19,7 @@ An intelligent math tutoring application that uses Socratic questioning to guide
 - **Polished Intro Screen**: Engaging welcome experience with animations
 
 ### Authentication & Database (Latest)
-- **User Authentication**: Sign in with Google OAuth for cross-device sync
+- **User Authentication**: Email/password authentication with NextAuth.js
 - **Hybrid Storage**: localStorage + PostgreSQL database
 - **Session Persistence**: Data persists across page refreshes (localStorage for anonymous, database for authenticated)
 - **Cross-Device Sync**: Authenticated users can access conversations and XP from any device
@@ -45,8 +45,6 @@ npm run dev
 - `DATABASE_URL` - PostgreSQL connection string
 - `NEXTAUTH_URL` - App URL (e.g., http://localhost:3000)
 - `NEXTAUTH_SECRET` - Random secret (generate with `openssl rand -base64 32`)
-- `GOOGLE_CLIENT_ID` - Google OAuth client ID
-- `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
 
 ## Development
 
@@ -67,8 +65,6 @@ See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for:
    - `DATABASE_URL` (use Vercel Postgres)
    - `NEXTAUTH_URL` (your production URL)
    - `NEXTAUTH_SECRET`
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
 4. Run database migrations: `npx prisma migrate deploy`
 5. Deploy!
 

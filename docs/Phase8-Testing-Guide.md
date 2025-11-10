@@ -18,11 +18,9 @@ DATABASE_URL="postgresql://user:password@localhost:5432/math_tutor?schema=public
 # Required: NextAuth
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-secret-here"  # Generate: openssl rand -base64 32
-
-# Required: Google OAuth
-GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="your-client-secret"
 ```
+
+**Note**: No OAuth credentials needed - app uses email/password authentication.
 
 ### 2. Database Setup
 
@@ -30,22 +28,12 @@ GOOGLE_CLIENT_SECRET="your-client-secret"
 # Generate Prisma client
 npx prisma generate
 
-# Create database tables
+# Create database tables (includes password field)
 npx prisma migrate dev --name init
 
 # (Optional) Open Prisma Studio to view data
 npx prisma studio
 ```
-
-### 3. Google OAuth Setup
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create/select a project
-3. Enable **Google+ API**
-4. Go to **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
-5. Application type: **Web application**
-6. Authorized redirect URIs: `http://localhost:3000/api/auth/callback/google`
-7. Copy **Client ID** and **Client Secret** to `.env.local`
 
 ---
 
@@ -75,29 +63,51 @@ npx prisma studio
 
 ---
 
-### ✅ Test 2: Sign In Flow
+### ✅ Test 2: Sign Up Flow
 
-**Goal**: Test authentication and automatic data sync
+**Goal**: Test account creation and automatic sign-in
 
 1. **Click "Sign In"** button in header
-2. **Complete Google OAuth**:
-   - Redirected to Google sign-in
-   - Select/enter Google account
-   - Grant permissions
-   - Redirected back to app
-3. **Verify UI**:
+2. **Click "Sign up"** link in the modal
+3. **Fill in sign-up form**:
+   - Email: `test@example.com`
+   - Password: `password123` (at least 8 characters)
+   - Name: `Test User` (optional)
+4. **Click "Sign Up"**
+5. **Verify UI**:
+   - ✅ Automatically signed in after sign-up
    - ✅ "Sign In" button replaced with user info
    - ✅ User name/email displayed
    - ✅ "Sign Out" button visible
-4. **Check browser console**:
+6. **Check browser console**:
    - Look for: "Syncing localStorage to server" (or similar)
    - No errors
-5. **Check database** (Prisma Studio: `npx prisma studio`):
-   - ✅ `User` table: Your user record created
-   - ✅ `Conversation` table: Your conversations synced
-   - ✅ `XPState` table: Your XP synced
+7. **Check database** (Prisma Studio: `npx prisma studio`):
+   - ✅ `User` table: Your user record created with hashed password
+   - ✅ `Conversation` table: Your conversations synced (if any)
+   - ✅ `XPState` table: Your XP synced (if any)
 
-**Expected**: Login successful, data automatically synced to database.
+**Expected**: Account created, automatically signed in, data synced to database.
+
+### ✅ Test 2b: Sign In Flow
+
+**Goal**: Test sign-in with existing account
+
+1. **Sign out** (if signed in)
+2. **Click "Sign In"** button
+3. **Enter credentials**:
+   - Email: `test@example.com`
+   - Password: `password123`
+4. **Click "Sign In"**
+5. **Verify**:
+   - ✅ Successfully signed in
+   - ✅ User info displayed
+   - ✅ Previous data loaded
+6. **Check database**:
+   - ✅ User record exists
+   - ✅ Data accessible
+
+**Expected**: Sign-in successful, previous data accessible.
 
 ---
 
@@ -149,7 +159,7 @@ npx prisma studio
 **Goal**: Verify data persists across login sessions
 
 1. **Sign out** (if signed in)
-2. **Sign back in** with same Google account
+2. **Sign back in** with same email/password
 3. **Verify**:
    - ✅ Previous conversations appear in history
    - ✅ XP/Level restored
@@ -339,7 +349,7 @@ npx prisma migrate dev
 
 # Check environment variables
 node -e "console.log(process.env.DATABASE_URL ? '✅ DATABASE_URL set' : '❌ DATABASE_URL missing')"
-node -e "console.log(process.env.GOOGLE_CLIENT_ID ? '✅ GOOGLE_CLIENT_ID set' : '❌ GOOGLE_CLIENT_ID missing')"
+node -e "console.log(process.env.NEXTAUTH_SECRET ? '✅ NEXTAUTH_SECRET set' : '❌ NEXTAUTH_SECRET missing')"
 ```
 
 ---
@@ -361,10 +371,11 @@ npx prisma generate
 npx prisma migrate dev --name init
 ```
 
-### "Google OAuth error"
-- Check redirect URI: `http://localhost:3000/api/auth/callback/google`
-- Verify Client ID and Secret in `.env.local`
-- Check Google Cloud Console for correct credentials
+### "Invalid email or password"
+- Verify email exists in database (check Prisma Studio)
+- Check password is correct
+- Try resetting password (if implemented)
+- Verify password was hashed correctly on sign-up
 
 ### "Sync not working"
 - Check browser console for errors

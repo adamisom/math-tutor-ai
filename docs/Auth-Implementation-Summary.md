@@ -9,9 +9,10 @@
 ## What Was Implemented
 
 ### 1. Authentication System
-- ✅ NextAuth.js v5 (beta) with Google OAuth provider
+- ✅ NextAuth.js v5 (beta) with email/password (CredentialsProvider)
 - ✅ Prisma database schema (User, Account, Session, Conversation, XPState)
-- ✅ Session management with Prisma adapter
+- ✅ Session management with JWT strategy
+- ✅ Sign-up and sign-in UI components
 - ✅ Auth button component in navigation header
 
 ### 2. Database API Routes
@@ -46,9 +47,7 @@ DATABASE_URL="postgresql://user:password@localhost:5432/math_tutor?schema=public
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-secret-key-here" # Generate with: openssl rand -base64 32
 
-# Google OAuth (get from https://console.cloud.google.com/)
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
+# No OAuth credentials needed - app uses email/password authentication
 ```
 
 ### 2. Database Setup
@@ -63,13 +62,14 @@ npx prisma migrate dev --name init
 npx prisma studio
 ```
 
-### 3. Google OAuth Setup
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URI: `http://localhost:3000/api/auth/callback/google`
-6. Copy Client ID and Client Secret to `.env.local`
+### 3. No OAuth Setup Required
+
+The app uses **email/password authentication** - no external OAuth setup needed!
+
+Users can:
+- Sign up with email and password
+- Sign in with email and password
+- All authentication handled by NextAuth.js CredentialsProvider
 
 ---
 
@@ -84,14 +84,23 @@ npx prisma studio
    - Should see `math-tutor-xp` with XP data
 5. **Refresh page**: Data should persist (from localStorage)
 
-### Test 2: Sign In Flow
+### Test 2: Sign Up Flow
 1. **Click "Sign In"** button in header
-2. **Sign in with Google**: Complete OAuth flow
-3. **Verify sync**: Check browser console for "Syncing localStorage to server"
-4. **Check database**: Run `npx prisma studio` and verify:
-   - User record created
+2. **Click "Sign up"** link
+3. **Fill in form**: Email, password (min 8 chars), name (optional)
+4. **Click "Sign Up"**: Automatically signs in after account creation
+5. **Verify sync**: Check browser console for "Syncing localStorage to server"
+6. **Check database**: Run `npx prisma studio` and verify:
+   - User record created with hashed password
    - Conversations synced to database
    - XP state synced to database
+
+### Test 2b: Sign In Flow
+1. **Sign out** (if signed in)
+2. **Click "Sign In"** button
+3. **Enter email and password**
+4. **Click "Sign In"**
+5. **Verify**: Successfully signed in, previous data accessible
 
 ### Test 3: Authenticated User
 1. **While signed in**: Create a new conversation
@@ -108,7 +117,7 @@ npx prisma studio
 4. **Note**: This requires database to be accessible from both devices (production setup)
 
 ### Test 5: Session Persistence
-1. **Sign in**: Authenticate with Google
+1. **Sign in**: Authenticate with email/password
 2. **Create conversation**: Have a chat session
 3. **Refresh page**: Data should persist (from localStorage and/or database)
 4. **Sign out and back in**: Previous conversations should be accessible
@@ -124,7 +133,7 @@ npx prisma studio
 
 ### After (Auth Implementation)
 - **Hybrid storage**: localStorage + PostgreSQL database
-- **User accounts**: Google OAuth authentication
+- **User accounts**: Email/password authentication
 - **Cross-device sync**: Data synced to database for authenticated users
 - **Backward compatible**: Anonymous users still work with localStorage only
 
@@ -166,7 +175,7 @@ If authenticated?
 ## Next Steps
 
 1. **Set up database**: Configure PostgreSQL (local or Vercel Postgres)
-2. **Set up Google OAuth**: Get credentials from Google Cloud Console
+2. **No OAuth setup needed**: App uses email/password authentication
 3. **Test locally**: Follow testing guide above
 4. **Deploy**: Update environment variables in Vercel
 5. **Verify production**: Test auth flow in production environment
