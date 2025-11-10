@@ -12,7 +12,6 @@ export function XPDisplay() {
     // Load client-only data after mount to avoid hydration mismatch
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTotalXP(getTotalXP());
   }, []);
 

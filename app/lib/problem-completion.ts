@@ -71,7 +71,17 @@ export function determineDifficulty(problemText: string): 'beginner' | 'intermed
     text.includes('absolute value') ||
     text.includes('|') ||
     text.includes('quadratic') ||
-    text.includes('complex')
+    text.includes('complex') ||
+    text.includes('logarithm') ||
+    text.includes('log(') ||
+    text.includes('exponential') ||
+    text.includes('trigonometry') ||
+    text.includes('sin') ||
+    text.includes('cos') ||
+    text.includes('tan') ||
+    text.includes('limit') ||
+    text.includes('matrix') ||
+    text.includes('vector')
   ) {
     return 'advanced';
   }
@@ -83,7 +93,15 @@ export function determineDifficulty(problemText: string): 'beginner' | 'intermed
     text.includes('fraction') ||
     text.includes('ratio') ||
     text.includes('percent') ||
-    text.includes('pythagorean')
+    text.includes('pythagorean') ||
+    text.includes('system of') ||
+    text.includes('inequality') ||
+    text.includes('>') ||
+    text.includes('<') ||
+    text.includes('square root') ||
+    text.includes('√') ||
+    (text.includes('x^') && !text.includes('x^2')) || // Powers other than squared
+    text.includes('polynomial')
   ) {
     return 'intermediate';
   }

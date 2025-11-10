@@ -245,6 +245,17 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           const attemptCount = getAttemptCount(problemSig);
           
           const solveXP = calculateSolveXP(difficulty, attemptCount);
+          
+          // Debug logging
+          console.log('XP Calculation:', {
+            problem: currentProblem,
+            difficulty,
+            attemptCount,
+            solveXP,
+            baseXP: difficulty === 'beginner' ? 10 : difficulty === 'intermediate' ? 15 : 20,
+            bonus: attemptCount === 1 ? 5 : attemptCount >= 5 ? 3 : 0
+          });
+          
           addXP(solveXP, 'solve', currentProblem);
           showXP(solveXP, 'solve');
           
@@ -321,11 +332,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
     submitProblem(problem);
   };
   
-  const handleSelectFromTest = () => {
-    setShowTryAnotherPrompt(false);
-    // Navigate to test page or show test problem selector
-    window.location.href = '/test';
-  };
 
   // Handle image upload
   const handleImageUpload = async (processedImage: ProcessedImage) => {
@@ -731,12 +737,6 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
               Generate AI Problem
             </button>
             <button
-              onClick={handleSelectFromTest}
-              className="w-full px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              Choose from Test Problems
-            </button>
-            <button
               onClick={() => {
                 setShowTryAnotherPrompt(false);
                 handleNewProblem();
@@ -857,8 +857,16 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
 
           {/* Welcome message for empty conversation */}
             {messages.length === 0 && !isLoading && !isProcessingImage && (
-            <div className="mb-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-blue-800 font-medium text-sm">Welcome to your AI Math Tutor! 👋</p>
+            <div className="mb-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg relative">
+              <button
+                onClick={handleGenerateProblem}
+                className="absolute top-2 right-2 px-3 py-1.5 text-sm bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors flex items-center gap-1.5"
+                title="Generate an AI math problem"
+              >
+                <Sparkles className="w-4 h-4" />
+                Generate AI problem
+              </button>
+              <p className="text-blue-800 font-medium text-sm pr-40">Welcome to your AI Math Tutor! 👋</p>
               <p className="text-blue-700 text-xs mt-1">
                 I&apos;ll guide you through math problems using questions to help you discover solutions yourself.
               </p>

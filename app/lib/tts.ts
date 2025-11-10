@@ -132,7 +132,7 @@ class TTSService {
         numWord = tensWords[tens[0]] + (ones !== '0' ? ' ' + numberWords[ones] : '');
       } else {
         // Fallback: spell out digit by digit
-        numWord = numStr.split('').map(d => numberWords[d] || d).join(' ');
+        numWord = numStr.split('').map((d: string) => numberWords[d] || d).join(' ');
       }
       
       if (num.startsWith('-')) {

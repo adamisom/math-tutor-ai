@@ -7,13 +7,11 @@ import { sttService } from '../lib/stt';
 
 interface VoiceControlsProps {
   onSpeechResult?: (text: string) => void;
-  autoSpeak?: boolean;
   assistantMessage?: string;
 }
 
 export function VoiceControls({
   onSpeechResult,
-  autoSpeak = false,
   assistantMessage,
 }: VoiceControlsProps) {
   const [ttsEnabled, setTtsEnabled] = useState(false);

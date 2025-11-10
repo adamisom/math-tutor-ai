@@ -140,7 +140,6 @@ export function MessageInput({
     <div className="space-y-2">
       <VoiceControls
         onSpeechResult={handleSpeechResult}
-        autoSpeak={!!assistantMessage}
         assistantMessage={assistantMessage}
       />
       <form 
