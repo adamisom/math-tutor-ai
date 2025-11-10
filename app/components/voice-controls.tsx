@@ -16,41 +16,47 @@ export function VoiceControls({
   autoSpeak = false,
   assistantMessage,
 }: VoiceControlsProps) {
-  const [ttsEnabled, setTtsEnabled] = useState(() => {
-    if (typeof window === 'undefined') return false;
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [sttEnabled, setSttEnabled] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [ttsAvailable, setTtsAvailable] = useState(false);
+  const [sttAvailable, setSttAvailable] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    // Load client-only data after mount to avoid hydration mismatch
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+    setTtsAvailable(ttsService.isAvailable());
+    setSttAvailable(sttService.isAvailable());
+    
+    // Load settings from localStorage
     const ttsStored = localStorage.getItem('math-tutor-tts-settings');
     if (ttsStored) {
       try {
         const settings = JSON.parse(ttsStored);
         if (settings.enabled) {
           ttsService.enable();
-          return true;
+          setTtsEnabled(true);
         }
       } catch {
         // Ignore parse errors
       }
     }
-    return false;
-  });
-  const [sttEnabled, setSttEnabled] = useState(() => {
-    if (typeof window === 'undefined') return false;
+    
     const sttStored = localStorage.getItem('math-tutor-stt-settings');
     if (sttStored) {
       try {
         const settings = JSON.parse(sttStored);
         if (settings.enabled) {
           sttService.enable();
-          return true;
+          setSttEnabled(true);
         }
       } catch {
         // Ignore parse errors
       }
     }
-    return false;
-  });
-  const [isListening, setIsListening] = useState(false);
-  const [ttsAvailable] = useState(() => ttsService.isAvailable());
-  const [sttAvailable] = useState(() => sttService.isAvailable());
+  }, []);
   
   useEffect(() => {
     if (autoSpeak && ttsEnabled && assistantMessage) {
@@ -98,6 +104,11 @@ export function VoiceControls({
     sttService.stop();
     setIsListening(false);
   };
+  
+  // Don't render until after mount to avoid hydration mismatch
+  if (!mounted) {
+    return null;
+  }
   
   if (!ttsAvailable && !sttAvailable) {
     return null;

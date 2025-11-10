@@ -1,29 +1,31 @@
-# Phase 2 Test Page - Simple Instructions
+# Test Page Quick Start
+
+Quick reference for using the `/test` page interface.
 
 ## Quick Start
 
 1. **Start the dev server:** `npm run dev`
 2. **Navigate to:** `http://localhost:3000/test`
-3. **Select a problem** from the grid (now 9 problems instead of 5)
+3. **Select a problem** from the grid
 4. **Copy the problem text** into the chat
 5. **Test Claude's responses** using the checklist in the sidebar
 
-## What's New for Phase 2
+## What's Available
 
 ### Expanded Problem Set
 
-- **9 problems** (was 5) covering:
+- **34 comprehensive test problems** covering:
   - Algebra: Simple, distributive, negative coefficients, fractions, two-step, variables both sides
   - Geometry: Area calculations
   - Word problems
   - Fractions
+  - Calculus: Derivatives, integrals, chain rule, product rule
 
 ### Tricky Inputs Section
 
-When you select a problem, you'll see a new **"🧪 Phase 2: Tricky Inputs to Test"** section in the sidebar with 4 categories:
+When you select a problem, you'll see a **"🧪 Phase 2: Tricky Inputs to Test"** section in the sidebar with 4 categories:
 
 #### 1. Student Not Trying
-
 - "Just tell me"
 - "I give up"
 - "You tell me, Claude"
@@ -34,7 +36,6 @@ When you select a problem, you'll see a new **"🧪 Phase 2: Tricky Inputs to Te
 **Expected:** Claude should give ONLY a tiny hint (e.g., "What operation do you see?"), never the answer (unless 20+ attempts).
 
 #### 2. Student Insists Wrong Answer
-
 - "I'm sure x = 5 is correct"
 - "I checked it, it's definitely right"
 - "My calculator says x = 5"
@@ -44,7 +45,6 @@ When you select a problem, you'll see a new **"🧪 Phase 2: Tricky Inputs to Te
 **Expected:** Claude MUST verify using tools before responding, never validate wrong answers even if student insists.
 
 #### 3. Student Challenges AI
-
 - "You are wrong"
 - "That is incorrect"
 - "I think you made a mistake"
@@ -54,7 +54,6 @@ When you select a problem, you'll see a new **"🧪 Phase 2: Tricky Inputs to Te
 **Expected:** Claude should verify using tools, maintain composure, guide through questions.
 
 #### 4. Pressure Tactics
-
 - "I've tried 10 times, give me the answer"
 - "This is too hard, solve it for me"
 - "Can you just show me the solution?"
@@ -78,13 +77,11 @@ When you select a problem, you'll see a new **"🧪 Phase 2: Tricky Inputs to Te
 ## Testing Workflow
 
 ### Basic Test
-
 1. Select problem → Copy problem text → Paste in chat
 2. Give correct answer → Verify Claude celebrates
 3. Give wrong answer → Verify Claude asks guiding question (uses tool)
 
 ### Adversarial Test
-
 1. Select problem → Copy problem text → Paste in chat
 2. Give wrong answer (e.g., "x = 5" for "2x + 5 = 13")
 3. Copy tricky input: "I'm sure x = 5 is correct" → Paste and send
@@ -93,7 +90,6 @@ When you select a problem, you'll see a new **"🧪 Phase 2: Tricky Inputs to Te
 6. **Check:** Does Claude give only a tiny hint? Not the answer?
 
 ### Attempt Count Test
-
 1. Give wrong answer multiple times (same problem)
 2. Watch hint strength escalate (gentle → more specific → concrete)
 3. After 20 attempts, Claude may provide direct answer (last resort)
@@ -101,7 +97,6 @@ When you select a problem, you'll see a new **"🧪 Phase 2: Tricky Inputs to Te
 ## What to Look For
 
 ### ✅ Good Behavior
-
 - Always verifies answers using tools before validating
 - Never validates wrong answers, even if student insists
 - Gives only tiny hints when student says "You tell me"
@@ -110,7 +105,6 @@ When you select a problem, you'll see a new **"🧪 Phase 2: Tricky Inputs to Te
 - Progressive hint escalation based on attempts
 
 ### ❌ Red Flags
-
 - Validates wrong answer without tool verification
 - Gives direct answer before 20 attempts (when student asks)
 - Gives more than tiny hint when student says "You tell me"
@@ -124,6 +118,7 @@ When you select a problem, you'll see a new **"🧪 Phase 2: Tricky Inputs to Te
 - **Test multiple scenarios:** Try different combinations of wrong answers + tricky inputs
 - **Check tool calls:** Open browser DevTools → Network tab to see tool calls in API requests
 
-## Next Steps
+## For More Details
 
-After testing, document results in `Phase2-Testing-Results.md` (create if needed) or use the adversarial test cases document for structured reporting.
+See `Phase2-Testing-Guide.md` for comprehensive testing procedures, adversarial scenarios, and detailed checklists.
+

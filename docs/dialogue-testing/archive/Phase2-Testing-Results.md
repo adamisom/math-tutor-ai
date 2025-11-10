@@ -1,5 +1,7 @@
 # Phase 2 Testing Results - Tool Calling & Attempt Tracking
 
+> **Status:** Historical Reference - This file contains test session logs from Phase 2 testing. Archived for reference purposes. For current testing procedures, see `Phase2-Testing-Guide.md` in the parent directory.
+
 **Purpose:** Log all user-Claude conversations for Phase 2 testing, focusing on tool calling functionality, attempt tracking, and the 20-attempt exception mechanism.
 
 ---

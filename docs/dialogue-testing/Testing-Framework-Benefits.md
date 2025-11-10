@@ -1,5 +1,7 @@
 # Testing Framework Benefits Analysis
 
+> **Status:** Planning Document - Framework components may not be fully implemented. See `Testing-Framework-Usage-Guide.md` for current implementation status.
+
 ## Overview
 
 This document explains the practical benefits of each Phase 4B testing framework component and what they would actually contain/do.
