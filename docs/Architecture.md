@@ -1,10 +1,11 @@
 # AI Math Tutor - System Architecture
 ## Client-Server Interactions & AI Integration Points
 
-**Version:** 1.0  
-**Date:** November 3, 2025  
+**Version:** 2.0  
+**Date:** January 2025  
+**Last Updated:** Phase 6 Enhancements (XP System, Conversation History, Voice Interface, AI Problem Generation, Intro Screen)  
 **Scope:** System design, data flows, AI integration architecture  
-**Companion Docs:** cursor-prd-comprehensive.md, AI_Math_Tutor_Implementation_Tasks.md
+**Companion Docs:** cursor-prd-comprehensive.md, AI_Math_Tutor_Implementation_Tasks.md, Phase6-Enhancements-Planning.md
 
 ---
 
@@ -17,9 +18,10 @@
 6. [State Management Architecture](#state-management-architecture)
 7. [Streaming Response Architecture](#streaming-response-architecture)
 8. [AI Decision Logic](#ai-decision-logic)
-9. [Security Architecture](#security-architecture)
-10. [Performance & Scaling Considerations](#performance--scaling-considerations)
-11. [Error Propagation & Recovery](#error-propagation--recovery)
+9. [Phase 6 Enhancements](#phase-6-enhancements)
+10. [Security Architecture](#security-architecture)
+11. [Performance & Scaling Considerations](#performance--scaling-considerations)
+12. [Error Propagation & Recovery](#error-propagation--recovery)
 
 ---
 
@@ -427,15 +429,46 @@ graph LR
     B --> C{State Changed?}
     C -->|Yes| D[Update localStorage]
     C -->|No| E[No Action]
-    D --> F[Handle Quota Exceeded]
-    F --> G[Cleanup Old Data]
+    D --> F{Quota Exceeded?}
+    F -->|Yes| G[Cleanup Old Data]
+    F -->|No| H[Save Successfully]
     
-    subgraph "Persistence Layer"
-        H[conversation: Message[]]
-        I[conversationState: State]
-        J[problemHistory: Problem[]]
+    subgraph "Persistence Layer (Phase 6)"
+        I[conversation-history: ConversationSession[]]
+        J[math-tutor-xp: XPState]
+        K[math-tutor-tts-settings: TTSSettings]
+        L[math-tutor-stt-settings: STTSettings]
+        M[math-tutor-conversation: Message[]]
+        N[attempts_*: Attempt counts]
     end
 ```
+
+### **Phase 6 Storage Architecture**
+
+The application now uses a structured localStorage approach with multiple storage keys:
+
+```typescript
+// Storage keys and their purposes
+const STORAGE_KEYS = {
+  // Phase 6: Enhanced conversation history
+  CONVERSATION_HISTORY: 'math-tutor-conversation-history',
+  // Phase 6: XP system for gamification
+  XP_STATE: 'math-tutor-xp',
+  // Phase 6: Voice interface settings
+  TTS_SETTINGS: 'math-tutor-tts-settings',
+  STT_SETTINGS: 'math-tutor-stt-settings',
+  // Legacy: Current conversation (backward compatible)
+  CURRENT_CONVERSATION: 'math-tutor-conversation',
+  // Attempt tracking per problem
+  ATTEMPTS: (signature: string) => `attempts_${signature}`,
+};
+```
+
+**Storage Management:**
+- **Quota Handling**: Automatic cleanup of oldest 25% of sessions when quota exceeded
+- **Version Migration**: Support for data structure migrations via version field
+- **Size Limits**: Max 50 sessions, 100 messages per session
+- **Utility Layer**: `app/lib/local-storage.ts` provides type-safe get/set/remove operations
 
 ---
 
@@ -590,6 +623,274 @@ const validateResponse = async (
     confidence: calculateOverallConfidence(response)
   };
 };
+```
+
+---
+
+## Phase 6 Enhancements
+
+### **Overview**
+
+Phase 6 introduced five major enhancements to improve user engagement, persistence, and accessibility:
+
+1. **Enhanced Conversation History** - Searchable, filterable session management
+2. **XP System** - Gamification with points, levels, and progress tracking
+3. **AI Problem Generation** - Dynamic problem creation with variety and difficulty matching
+4. **Voice Interface** - Text-to-Speech (TTS) and Speech-to-Text (STT) support
+5. **Polished Intro Screen** - Engaging welcome experience with animations
+
+---
+
+### **1. Enhanced Conversation History**
+
+**Architecture:**
+```
+┌─────────────────────────────────────┐
+│    ConversationHistory Component    │
+├─────────────────────────────────────┤
+│ • Search by title/problem text     │
+│ • Filter by problem type           │
+│ • Export/Delete sessions           │
+│ • Auto-save on message updates     │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│  conversation-history.ts (Storage)   │
+├─────────────────────────────────────┤
+│ • saveConversationSession()         │
+│ • loadConversationHistory()         │
+│ • deleteConversationSession()       │
+│ • exportConversationSession()       │
+│ • Quota management                  │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│      localStorage (Browser)         │
+│  math-tutor-conversation-history    │
+└─────────────────────────────────────┘
+```
+
+**Data Structure:**
+```typescript
+interface ConversationSession {
+  id: string;                    // UUID or timestamp-based
+  title: string;                 // Auto-generated from first problem
+  problemText: string;           // Initial problem
+  messages: ConversationMessage[]; // Full conversation
+  createdAt: number;             // Timestamp
+  updatedAt: number;             // Timestamp
+  completed: boolean;            // Whether problem was solved
+  xpEarned: number;              // XP from this session
+  problemType?: string;          // Algebra, Geometry, etc.
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+}
+
+interface ConversationHistoryStorage {
+  sessions: ConversationSession[];
+  currentSessionId: string | null;
+  lastUpdated: number;
+  version: number;               // For migration support
+}
+```
+
+**Features:**
+- Auto-save sessions on message updates (debounced 1s)
+- Search and filter UI for finding past conversations
+- Export sessions as text files
+- Quota management (removes oldest 25% when exceeded)
+- Version migration support for future schema changes
+
+---
+
+### **2. XP System (Gamification)**
+
+**Architecture:**
+```
+┌─────────────────────────────────────┐
+│      XPDisplay Component            │
+│  (Shows level, XP, progress bar)    │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│      XPAnimation Component          │
+│  (Animated notifications)           │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│      xp-system.ts (Logic)            │
+├─────────────────────────────────────┤
+│ • calculateAttemptXP()              │
+│ • calculateSolveXP()                 │
+│ • calculateLevel()                   │
+│ • addXP()                            │
+│ • getTotalXP()                       │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│      localStorage                   │
+│  math-tutor-xp                      │
+└─────────────────────────────────────┘
+```
+
+**XP Rewards:**
+- **Attempt XP**: Base 1 XP, +2 bonus if work shown
+- **Solve XP**: 
+  - Beginner: 10 base (+5 first-try, +3 persistence)
+  - Intermediate: 15 base (+5 first-try, +3 persistence)
+  - Advanced: 20 base (+5 first-try, +3 persistence)
+- **Level Calculation**: 100 XP per level (Level 1 = 0-99 XP, Level 2 = 100-199 XP, etc.)
+
+**Integration Points:**
+- Awards attempt XP on each user message
+- Awards solve XP when problem completion detected
+- Shows animated notifications for XP gains
+- Updates level and progress bar in real-time
+
+---
+
+### **3. AI Problem Generation**
+
+**Architecture:**
+```
+┌─────────────────────────────────────┐
+│   ProblemGenerator Component        │
+│  (Type/difficulty selection UI)    │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│  /api/chat/generate-problem         │
+│  (Next.js API Route)               │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│      Claude AI API                  │
+│  (claude-sonnet-4-20250514)        │
+│  • Generates unique problems        │
+│  • Returns JSON: {problem, type,    │
+│    difficulty}                      │
+└─────────────────────────────────────┘
+```
+
+**Features:**
+- Generates problems across types: Algebra, Geometry, Calculus, Fractions, Word Problems
+- Supports difficulty levels: beginner, intermediate, advanced
+- Excludes previously generated problems (via `excludeProblems` parameter)
+- Returns structured JSON with problem text, type, and difficulty
+- Integrated into "Try Another Problem" flow after solving
+
+**Prompt Engineering:**
+- Temperature: 0.8 (for variety)
+- Strict JSON response format required
+- LaTeX formatting for math expressions
+- Single, self-contained problems only
+
+---
+
+### **4. Voice Interface**
+
+**Architecture:**
+```
+┌─────────────────────────────────────┐
+│      VoiceControls Component        │
+│  (TTS/STT toggle buttons)          │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│      tts.ts (Text-to-Speech)        │
+│  • SpeechSynthesis API              │
+│  • Voice selection                   │
+│  • Rate/pitch/volume control         │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│      stt.ts (Speech-to-Text)        │
+│  • SpeechRecognition API             │
+│  • Continuous/interim results        │
+│  • Language selection                │
+└─────────────────────────────────────┘
+```
+
+**Text-to-Speech (TTS):**
+- Uses browser `SpeechSynthesis` API
+- Auto-speaks assistant messages when enabled
+- Settings persisted in localStorage
+- Voice selection from available browser voices
+- Rate, pitch, volume controls
+
+**Speech-to-Text (STT):**
+- Uses browser `SpeechRecognition` API (Chrome/Edge)
+- Continuous or one-shot recognition modes
+- Interim results for real-time feedback
+- Error handling for unsupported browsers
+- Settings persisted in localStorage
+
+**Browser Compatibility:**
+- **Chrome/Edge**: Full TTS + STT support
+- **Safari**: TTS supported, limited STT
+- **Firefox**: Limited voice support
+- **Mobile**: iOS Safari (TTS), Android Chrome (full support)
+
+---
+
+### **5. Polished Intro Screen**
+
+**Architecture:**
+```
+┌─────────────────────────────────────┐
+│      IntroScreen Component          │
+│  (Animated welcome screen)          │
+└─────────────────────────────────────┘
+              ↓
+┌─────────────────────────────────────┐
+│      intro-screen.ts (Logic)        │
+│  • shouldShowIntro()                │
+│  • markIntroAsShown()               │
+│  • resetIntro()                      │
+└─────────────────────────────────────┘
+```
+
+**Show/Hide Logic:**
+- Shows for new users (no localStorage entry)
+- Shows if version changed (migration)
+- Shows if >30 days since last shown
+- Hides if user has 3+ sessions or 50+ XP (returning user)
+- Can be skipped by returning users
+
+**Features:**
+- Animated entrance/exit transitions
+- Feature cards with staggered animations
+- User stats display (XP, problems solved) for returning users
+- Floating math symbols background animation
+- Gradient backgrounds and modern styling
+
+---
+
+### **Phase 6 Component Hierarchy**
+
+```
+Home (page.tsx)
+├── IntroScreen (conditional)
+└── ChatInterface
+    ├── ConversationHistory (modal)
+    ├── XPDisplay (header)
+    ├── XPAnimation (overlay, multiple)
+    ├── VoiceControls (message input area)
+    ├── ProblemGenerator (modal)
+    ├── TryAnotherProblemPrompt (overlay)
+    ├── MessageList
+    └── MessageInput
+        └── VoiceControls (STT input)
+```
+
+---
+
+### **Phase 6 API Routes**
+
+```
+/api/chat/generate-problem (POST)
+  Request: { type, difficulty, excludeProblems? }
+  Response: { problem, type, difficulty }
+  Uses: Claude AI (claude-sonnet-4-20250514)
 ```
 
 ---
