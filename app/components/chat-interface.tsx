@@ -176,6 +176,9 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
   // On login: sync localStorage to database, then clear localStorage and load from database
   useEffect(() => {
     if (isAuthenticated && !previousAuthState) {
+      // Reset UI state - clear current conversation
+      handleNewProblem();
+      
       // Show login greeting animation
       if (session?.user?.name) {
         setShowLoginGreeting(true);
