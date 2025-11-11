@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { LogIn, X } from 'lucide-react';
 import { SignInForm } from './signin-form';
 import { SignUpForm } from './signup-form';
+import { removeStorageItem } from '../lib/local-storage';
 
 export function AuthButton() {
   const { data: session, status } = useSession();
@@ -23,9 +24,22 @@ export function AuthButton() {
     const displayName = (session.user.name || session.user.email || 'User').toLowerCase();
     const truncatedName = displayName.length > 12 ? displayName.substring(0, 12) : displayName;
 
+    const handleSignOut = async () => {
+      // Clear user-specific localStorage data before signing out
+      removeStorageItem('math-tutor-conversation');
+      removeStorageItem('math-tutor-conversation-history');
+      removeStorageItem('math-tutor-xp');
+      
+      // Sign out (this clears the session)
+      await signOut();
+      
+      // Reload page to ensure clean state
+      window.location.reload();
+    };
+
     return (
       <button
-        onClick={() => signOut()}
+        onClick={handleSignOut}
         className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex flex-col items-center min-w-[120px]"
         title="Sign out"
       >
