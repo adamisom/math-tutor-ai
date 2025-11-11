@@ -284,62 +284,91 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
       if (currentProblem) {
         const completion = detectProblemCompletion(messages, currentProblem);
         
-        if (completion.isComplete && !problemSolved) {
-          setProblemSolved(true);
-          
-          const difficulty = determineDifficulty(currentProblem);
-          const problemSig = generateProblemSignature(currentProblem);
-          const attemptCount = getAttemptCount(problemSig);
-          
-          const solveXP = calculateSolveXP(difficulty, attemptCount);
-          
-          // Debug logging
-          console.log('XP Calculation:', {
-            problem: currentProblem,
-            difficulty,
-            attemptCount,
-            solveXP,
-            baseXP: difficulty === 'beginner' ? 10 : difficulty === 'intermediate' ? 15 : 20,
-            bonus: attemptCount === 1 ? 5 : attemptCount >= 5 ? 3 : 0
-          });
-          
-          addXP(solveXP, 'solve', currentProblem);
-          showXP(solveXP, 'solve');
-          
-          // Save XP to database if authenticated
-          console.log('[XP Save] Attempting to save solve XP, isAuthenticated:', isAuthenticated);
-          import('../lib/xp-system').then(({ getXPState }) => {
-            const xpState = getXPState();
-            console.log('[XP Save] Current XP state:', { totalXP: xpState.totalXP, level: xpState.level });
-            if (xpState) {
-              saveXPStateHybrid(xpState, isAuthenticated).then(() => {
-                // Trigger XP display update after saving
-                setTimeout(() => {
-                  window.dispatchEvent(new Event('xp-updated'));
-                }, 100);
-              }).catch(err => {
-                console.error('[XP Save] Failed to save XP to database:', err);
-              });
-            }
-          });
-          
-          // Update session (hybrid storage)
+        // Check if XP was already awarded for this problem (prevent duplicate awards on page refresh)
+        const checkIfAlreadyAwarded = async () => {
           if (currentSessionId) {
-            loadConversationHistoryHybrid(isAuthenticated).then(history => {
-              const session = history.sessions.find(s => s.id === currentSessionId);
-              if (session) {
-                session.completed = true;
-                session.xpEarned = solveXP;
-                updateConversationSessionHybrid(session, isAuthenticated).catch(err => {
-                  console.warn('Failed to update session:', err);
+            const history = await loadConversationHistoryHybrid(isAuthenticated);
+            const session = history.sessions.find(s => s.id === currentSessionId);
+            if (session?.completed && session.xpEarned > 0) {
+              return true; // Already awarded
+            }
+          }
+          // Also check XP transactions for this problem
+          const { getXPState } = await import('../lib/xp-system');
+          const xpState = getXPState();
+          // Check if there's already a solve XP transaction for this exact problem
+          const hasSolveXP = xpState.transactions?.some(
+            t => t.reason === 'solve' && t.problemId === currentProblem
+          );
+          return hasSolveXP;
+        };
+        
+        if (completion.isComplete && !problemSolved) {
+          // Check if XP was already awarded before awarding again (prevents duplicate on page refresh)
+          checkIfAlreadyAwarded().then(alreadyAwarded => {
+            if (alreadyAwarded) {
+              console.log('[XP] XP already awarded for this problem, skipping duplicate award');
+              setProblemSolved(true); // Mark as solved but don't award XP
+              return;
+            }
+            
+            // Award XP for solving the problem
+            setProblemSolved(true);
+            
+            const difficulty = determineDifficulty(currentProblem);
+            const problemSig = generateProblemSignature(currentProblem);
+            const attemptCount = getAttemptCount(problemSig);
+            
+            const solveXP = calculateSolveXP(difficulty, attemptCount);
+            
+            // Debug logging
+            console.log('XP Calculation:', {
+              problem: currentProblem,
+              difficulty,
+              attemptCount,
+              solveXP,
+              baseXP: difficulty === 'beginner' ? 10 : difficulty === 'intermediate' ? 15 : 20,
+              bonus: attemptCount === 1 ? 5 : attemptCount >= 5 ? 3 : 0
+            });
+            
+            addXP(solveXP, 'solve', currentProblem);
+            showXP(solveXP, 'solve');
+            
+            // Save XP to database if authenticated
+            console.log('[XP Save] Attempting to save solve XP, isAuthenticated:', isAuthenticated);
+            import('../lib/xp-system').then(({ getXPState }) => {
+              const xpState = getXPState();
+              console.log('[XP Save] Current XP state:', { totalXP: xpState.totalXP, level: xpState.level });
+              if (xpState) {
+                saveXPStateHybrid(xpState, isAuthenticated).then(() => {
+                  // Trigger XP display update after saving
+                  setTimeout(() => {
+                    window.dispatchEvent(new Event('xp-updated'));
+                  }, 100);
+                }).catch(err => {
+                  console.error('[XP Save] Failed to save XP to database:', err);
                 });
               }
             });
-          }
-          
-          setTimeout(() => {
-            setShowTryAnotherPrompt(true);
-          }, 2000);
+            
+            // Update session (hybrid storage)
+            if (currentSessionId) {
+              loadConversationHistoryHybrid(isAuthenticated).then(history => {
+                const session = history.sessions.find(s => s.id === currentSessionId);
+                if (session) {
+                  session.completed = true;
+                  session.xpEarned = solveXP;
+                  updateConversationSessionHybrid(session, isAuthenticated).catch(err => {
+                    console.warn('Failed to update session:', err);
+                  });
+                }
+              });
+            }
+            
+            setTimeout(() => {
+              setShowTryAnotherPrompt(true);
+            }, 2000);
+          });
         }
       }
     }
