@@ -108,8 +108,54 @@ export function getTotalXP(): number {
   return 0;
 }
 
+/**
+ * Calculate level from total XP using exponential progression.
+ * XP needed for next level = 100 * 2^level
+ * 
+ * Examples:
+ * - Level 1: 0-199 XP (200 XP needed for level 2)
+ * - Level 2: 200-599 XP (400 XP needed for level 3)
+ * - Level 3: 600-1399 XP (800 XP needed for level 4)
+ * - Level 4: 1400-2999 XP (1600 XP needed for level 5)
+ */
 export function calculateLevel(totalXP: number): number {
-  return Math.floor(totalXP / 100) + 1;
+  if (totalXP < 0) return 1;
+  
+  let level = 1;
+  let cumulativeXP = 0;
+  
+  // Calculate cumulative XP needed for each level
+  // Level N requires 100 * 2^N XP to reach
+  while (cumulativeXP <= totalXP) {
+    const xpForNextLevel = 100 * Math.pow(2, level);
+    cumulativeXP += xpForNextLevel;
+    if (cumulativeXP > totalXP) {
+      return level;
+    }
+    level++;
+  }
+  
+  return level;
+}
+
+/**
+ * Calculate XP needed to reach the next level from current level
+ */
+export function getXPForNextLevel(level: number): number {
+  return 100 * Math.pow(2, level);
+}
+
+/**
+ * Calculate cumulative XP needed to reach a specific level
+ */
+export function getCumulativeXPForLevel(level: number): number {
+  if (level <= 1) return 0;
+  
+  let cumulative = 0;
+  for (let i = 1; i < level; i++) {
+    cumulative += 100 * Math.pow(2, i);
+  }
+  return cumulative;
 }
 
 function getRecentTransactions(): XPTransaction[] {

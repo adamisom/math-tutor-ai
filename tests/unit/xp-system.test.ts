@@ -94,33 +94,53 @@ describe('calculateSolveXP', () => {
 });
 
 describe('calculateLevel', () => {
-  it('should calculate level 1 for 0-99 XP', () => {
+  // Exponential progression: XP needed for next level = 100 * 2^level
+  // Level 1: 0-199 XP (200 XP needed for level 2)
+  // Level 2: 200-599 XP (400 XP needed for level 3)
+  // Level 3: 600-1399 XP (800 XP needed for level 4)
+  // Level 4: 1400-2999 XP (1600 XP needed for level 5)
+  
+  it('should calculate level 1 for 0-199 XP', () => {
     expect(calculateLevel(0)).toBe(1);
     expect(calculateLevel(50)).toBe(1);
-    expect(calculateLevel(99)).toBe(1);
+    expect(calculateLevel(100)).toBe(1);
+    expect(calculateLevel(199)).toBe(1);
   });
 
-  it('should calculate level 2 for 100-199 XP', () => {
-    expect(calculateLevel(100)).toBe(2);
-    expect(calculateLevel(150)).toBe(2);
-    expect(calculateLevel(199)).toBe(2);
+  it('should calculate level 2 for 200-599 XP', () => {
+    expect(calculateLevel(200)).toBe(2);
+    expect(calculateLevel(300)).toBe(2);
+    expect(calculateLevel(500)).toBe(2);
+    expect(calculateLevel(599)).toBe(2);
   });
 
-  it('should calculate level 3 for 200-299 XP', () => {
-    expect(calculateLevel(200)).toBe(3);
-    expect(calculateLevel(250)).toBe(3);
-    expect(calculateLevel(299)).toBe(3);
+  it('should calculate level 3 for 600-1399 XP', () => {
+    expect(calculateLevel(600)).toBe(3);
+    expect(calculateLevel(800)).toBe(3);
+    expect(calculateLevel(1000)).toBe(3);
+    expect(calculateLevel(1399)).toBe(3);
+  });
+
+  it('should calculate level 4 for 1400-2999 XP', () => {
+    expect(calculateLevel(1400)).toBe(4);
+    expect(calculateLevel(2000)).toBe(4);
+    expect(calculateLevel(2500)).toBe(4);
+    expect(calculateLevel(2999)).toBe(4);
   });
 
   it('should calculate higher levels correctly', () => {
-    expect(calculateLevel(500)).toBe(6);
-    expect(calculateLevel(1000)).toBe(11);
-    expect(calculateLevel(2500)).toBe(26);
+    expect(calculateLevel(3000)).toBe(5); // Level 5 starts at 3000
+    expect(calculateLevel(5000)).toBe(5);
+    expect(calculateLevel(6199)).toBe(5);
+    expect(calculateLevel(6200)).toBe(6); // Level 6 starts at 6200
   });
 
   it('should handle edge cases', () => {
     expect(calculateLevel(1)).toBe(1);
-    expect(calculateLevel(101)).toBe(2);
+    expect(calculateLevel(199)).toBe(1);
+    expect(calculateLevel(200)).toBe(2);
+    expect(calculateLevel(599)).toBe(2);
+    expect(calculateLevel(600)).toBe(3);
   });
 });
 

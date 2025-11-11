@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
-import { getTotalXP, calculateLevel } from '../lib/xp-system';
+import { getTotalXP, calculateLevel, getXPForNextLevel, getCumulativeXPForLevel } from '../lib/xp-system';
 
 export function XPDisplay() {
   const [totalXP, setTotalXP] = useState(0);
@@ -34,9 +34,10 @@ export function XPDisplay() {
   }, []);
 
   const level = calculateLevel(totalXP);
-  const xpForNextLevel = level * 100;
-  const xpProgress = totalXP % 100;
-  const progressPercent = (xpProgress / 100) * 100;
+  const xpForNextLevel = getXPForNextLevel(level);
+  const cumulativeXPForCurrentLevel = getCumulativeXPForLevel(level);
+  const xpProgress = totalXP - cumulativeXPForCurrentLevel;
+  const progressPercent = (xpProgress / xpForNextLevel) * 100;
   
   // Show default state until mounted to match server render
   if (!mounted) {
@@ -59,7 +60,7 @@ export function XPDisplay() {
             />
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            100 XP to Level 2
+            200 XP to Level 2
           </div>
         </div>
       </div>
