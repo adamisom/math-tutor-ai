@@ -11,14 +11,17 @@ An intelligent math tutoring application that uses Socratic questioning to guide
 - **Multi-Problem Detection**: Handles images with multiple problems intelligently
 - **LaTeX Rendering**: Beautiful math equation rendering (feature-flagged)
 
-### Phase 6 Enhancements
-- **Conversation History**: Searchable, filterable history of past sessions with export
-- **XP System**: Gamification with points, levels, and progress tracking
+### Bonus - Phase 6 Enhancements
+- **Conversation History**: Searchable history of past sessions with export
+- **XP System**: Gamification with exponential level progression (100 × 2^level XP per level)
 - **AI Problem Generation**: Dynamically generate new problems with variety and difficulty matching
 - **Voice Interface**: Text-to-Speech (TTS) and Speech-to-Text (STT) support
 - **Polished Intro Screen**: Engaging welcome experience with animations
 
-### Authentication & Database (Latest)
+### Bonus - Phase 7 Enhancements
+- (To be documented)
+
+### Bonus - Phase 8 Enhancements
 - **User Authentication**: Email/password authentication with NextAuth.js
 - **Hybrid Storage**: localStorage + PostgreSQL database
 - **Session Persistence**: Data persists across page refreshes (localStorage for anonymous, database for authenticated)
@@ -34,15 +37,15 @@ git clone <repository-url>
 cd math-tutor-ai
 npm install
 # Create .env.local with required variables (see DEVELOPER_SETUP.md)
-npx prisma generate
-npx prisma migrate dev
+npx dotenv -e .env.local -- npx prisma generate
+npx dotenv -e .env.local -- npx prisma migrate dev
 npm run dev
 # Open http://localhost:3000
 ```
 
 **Required Environment Variables:**
 - `ANTHROPIC_API_KEY` - For Claude AI
-- `DATABASE_URL` - PostgreSQL connection string
+- `DATABASE_URL` - PostgreSQL connection string (Neon Postgres recommended)
 - `NEXTAUTH_URL` - App URL (e.g., http://localhost:3000)
 - `NEXTAUTH_SECRET` - Random secret (generate with `openssl rand -base64 32`)
 
@@ -56,19 +59,29 @@ See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for:
 
 ## Deployment
 
-### Vercel (Recommended)
+See [Deployment Guide](./docs/Deployment-Guide.md) for complete instructions.
 
-1. Push your code to GitHub
-2. Import your repository in [Vercel](https://vercel.com)
-3. Add environment variables:
-   - `ANTHROPIC_API_KEY`
-   - `DATABASE_URL` (use Neon Postgres or other PostgreSQL provider)
-   - `NEXTAUTH_URL` (your production URL)
-   - `NEXTAUTH_SECRET`
-4. Run database migrations: `npx prisma migrate deploy`
-5. Deploy!
+**Quick Deploy (CLI):**
+```bash
+vercel --prod
+```
 
-The app will automatically deploy on every push to your main branch.
+**Or connect to GitHub** for automatic deployments on every push.
+
+**Required Environment Variables:**
+- `ANTHROPIC_API_KEY`
+- `DATABASE_URL` (Neon Postgres or other PostgreSQL provider)
+- `NEXTAUTH_URL` (your production URL)
+- `NEXTAUTH_SECRET` (generate with `openssl rand -base64 32`)
+
+**After setting env vars:**
+```bash
+# Run database migrations
+npx dotenv -e .env.production -- npx prisma migrate deploy
+
+# Redeploy
+vercel --prod
+```
 
 
 ## Architecture
@@ -93,7 +106,8 @@ The app will automatically deploy on every push to your main branch.
 
 ### Setup & Development
 - [Developer Setup Guide](./DEVELOPER_SETUP.md) - Complete setup instructions
-- [Architecture](./docs/Architecture.md) - System architecture (v2.0 with Phase 6)
+- [Deployment Guide](./docs/Deployment-Guide.md) - Production deployment instructions
+- [Architecture](./docs/Architecture.md) - System architecture (v3.0 with Phase 6 & Auth)
 - [Quick Testing Guide](./docs/Quick-Testing-Guide.md) - Manual testing procedures
 
 ### Testing
@@ -102,7 +116,6 @@ The app will automatically deploy on every push to your main branch.
 
 ### Planning
 - [PRD](./docs/PRD.md) - Product requirements document
-- [Phase 6 Enhancements Planning](./docs/Phase6-Enhancements-Planning.md) - Phase 6 feature details
 
 ## Contributing
 
