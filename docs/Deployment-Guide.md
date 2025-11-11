@@ -26,7 +26,33 @@ npm run lint && npm run build && npm test
 
 ## 🚀 Deployment Steps
 
-### **Step 2: Push Code to GitHub** (~1 min)
+### **Step 2: Deploy to Vercel** (~2 min)
+
+**Option A: CLI Deployment (Simple)**
+
+```bash
+# Deploy to production
+vercel --prod
+```
+
+This will:
+- Build your project
+- Deploy to production
+- Use your existing Vercel project (if linked) or create a new one
+
+**Note:** If you haven't linked your project yet:
+```bash
+vercel link  # Link to existing project or create new one
+vercel --prod  # Deploy
+```
+
+---
+
+**Option B: GitHub Integration (Auto-Deploy)**
+
+If you want automatic deployments on every push:
+
+### **Step 2a: Push Code to GitHub** (~1 min)
 
 ```bash
 # Make sure all changes are committed
@@ -38,9 +64,21 @@ git push origin main
 
 **Note:** If you're on a different branch, merge to main first or deploy that branch.
 
+### **Step 2b: Connect to GitHub in Vercel** (~5 min)
+
+1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+2. Find your project → **Settings → Git**
+3. Click **"Connect Git Repository"** or **"Connect GitHub"**
+4. Select your GitHub repository
+5. Choose `main` as the production branch
+
+After connecting, every push to `main` will auto-deploy.
+
 ---
 
 ### **Step 3: Set Up Vercel Project** (~5 min)
+
+**Note:** Skip this step if you already have a Vercel project set up (via CLI or previous deployment).
 
 1. **Go to [Vercel Dashboard](https://vercel.com/dashboard)**
 
@@ -58,6 +96,11 @@ git push origin main
    - **Install Command:** `npm install` (default)
 
 4. **Click "Deploy"** (we'll add env vars after)
+
+**Or use CLI:**
+```bash
+vercel link  # Link to existing project or create new one
+```
 
 ---
 
@@ -119,7 +162,7 @@ npm i -g vercel
 # Login to Vercel
 vercel login
 
-# Link to your project
+# Link to your project (if not already linked)
 vercel link
 
 # Pull environment variables
@@ -129,12 +172,11 @@ vercel env pull .env.production
 npx dotenv -e .env.production -- npx prisma migrate deploy
 ```
 
-**Option B: Using Neon Dashboard**
+**Expected output:**
+- If migrations are pending: `X migrations found and applied successfully`
+- If already applied: `No pending migrations to apply` ✅ (this is fine!)
 
-1. Go to Neon dashboard → SQL Editor
-2. Run migrations manually (copy from `prisma/migrations`)
-
-**Option C: Direct Connection**
+**Option B: Direct Connection**
 
 ```bash
 # Set DATABASE_URL temporarily
@@ -144,19 +186,36 @@ export DATABASE_URL="your-production-database-url"
 npx prisma migrate deploy
 ```
 
+**Option C: Using Neon Dashboard**
+
+1. Go to Neon dashboard → SQL Editor
+2. Run migrations manually (copy from `prisma/migrations`)
+
 ---
 
 ### **Step 6: Redeploy** (~2 min)
 
-After setting environment variables:
+After setting environment variables, you need to redeploy:
 
-1. **Go to Vercel Dashboard → Your Project → Deployments**
-2. **Click the 3 dots on latest deployment → "Redeploy"**
-3. **Or push a new commit:**
-   ```bash
-   git commit --allow-empty -m "Trigger redeploy"
-   git push origin main
-   ```
+**Option A: CLI Deployment**
+```bash
+vercel --prod
+```
+
+**Option B: Via Dashboard (Web Console)**
+1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+2. Click on your project
+3. Go to the **"Deployments"** tab
+4. Find the latest deployment (or the one you want to redeploy)
+5. Click the **three dots (⋯)** menu on that deployment
+6. Click **"Redeploy"**
+7. Watch the build logs in real time
+
+**Option C: If Connected to GitHub**
+```bash
+git commit --allow-empty -m "Trigger redeploy"
+git push origin main
+```
 
 **Why redeploy?** Environment variables are only available during build/runtime, so you need to redeploy after adding them.
 
@@ -291,12 +350,17 @@ npx prisma migrate reset
 
 ## 🔄 Continuous Deployment
 
-**Vercel automatically deploys:**
-- Every push to `main` branch
+**If connected to GitHub:**
+- Vercel automatically deploys on every push to `main` branch
 - Pull requests get preview deployments
 - Environment variables are automatically available
 
-**To trigger manual redeploy:**
+**Manual deployment (CLI):**
+```bash
+vercel --prod
+```
+
+**Manual redeploy (if connected to GitHub):**
 ```bash
 git commit --allow-empty -m "Redeploy"
 git push origin main
@@ -333,7 +397,10 @@ NEXTAUTH_SECRET=[generated secret]
 # Pre-deploy checks
 npm run lint && npm run build && npm test
 
-# Push to trigger deploy
+# Deploy to production (CLI)
+vercel --prod
+
+# Or push to trigger auto-deploy (if connected to GitHub)
 git push origin main
 
 # Run migrations (after env vars set)

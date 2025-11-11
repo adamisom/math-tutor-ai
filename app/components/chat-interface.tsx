@@ -312,7 +312,12 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
             const xpState = getXPState();
             console.log('[XP Save] Current XP state:', { totalXP: xpState.totalXP, level: xpState.level });
             if (xpState) {
-              saveXPStateHybrid(xpState, isAuthenticated).catch(err => {
+              saveXPStateHybrid(xpState, isAuthenticated).then(() => {
+                // Trigger XP display update after saving
+                setTimeout(() => {
+                  window.dispatchEvent(new Event('xp-updated'));
+                }, 100);
+              }).catch(err => {
                 console.error('[XP Save] Failed to save XP to database:', err);
               });
             }
@@ -499,7 +504,12 @@ export function ChatInterface({ selectedProblem }: ChatInterfaceProps = {} as Ch
           const xpState = getXPState();
           console.log('[XP Save] Current XP state:', { totalXP: xpState.totalXP, level: xpState.level });
           if (xpState) {
-            saveXPStateHybrid(xpState, isAuthenticated).catch(err => {
+            saveXPStateHybrid(xpState, isAuthenticated).then(() => {
+              // Trigger XP display update after saving
+              setTimeout(() => {
+                window.dispatchEvent(new Event('xp-updated'));
+              }, 100);
+            }).catch(err => {
               console.error('[XP Save] Failed to save XP to database:', err);
             });
           }
