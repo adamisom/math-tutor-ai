@@ -11,17 +11,12 @@ An intelligent math tutoring application that uses Socratic questioning to guide
 - **Multi-Problem Detection**: Handles images with multiple problems intelligently
 - **LaTeX Rendering**: Beautiful math equation rendering (feature-flagged)
 
-### Bonus - Phase 6 Enhancements
+### Bonus Features
 - **Conversation History**: Searchable history of past sessions with export
 - **XP System**: Gamification with exponential level progression (100 × 2^level XP per level)
 - **AI Problem Generation**: Dynamically generate new problems with variety and difficulty matching
 - **Voice Interface**: Text-to-Speech (TTS) and Speech-to-Text (STT) support
 - **Polished Intro Screen**: Engaging welcome experience with animations
-
-### Bonus - Phase 7 Enhancements
-- (To be documented)
-
-### Bonus - Phase 8 Enhancements
 - **User Authentication**: Email/password authentication with NextAuth.js
 - **Hybrid Storage**: localStorage + PostgreSQL database
 - **Session Persistence**: Data persists across page refreshes (localStorage for anonymous, database for authenticated)
