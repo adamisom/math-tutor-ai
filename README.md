@@ -24,14 +24,14 @@ An intelligent math tutoring application that uses Socratic questioning to guide
 
 ## Quick Start
 
-See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for detailed setup instructions.
+See [DEVELOPER_SETUP.md](./docs/DEVELOPER_SETUP.md) for detailed setup instructions.
 
 **TL;DR:**
 ```bash
 git clone <repository-url>
 cd math-tutor-ai
 npm install
-# Create .env.local with required variables (see DEVELOPER_SETUP.md)
+# Create .env.local with required variables (see docs/DEVELOPER_SETUP.md)
 npx dotenv -e .env.local -- npx prisma generate
 npx dotenv -e .env.local -- npx prisma migrate dev
 npm run dev
@@ -46,7 +46,7 @@ npm run dev
 
 ## Development
 
-See [DEVELOPER_SETUP.md](./DEVELOPER_SETUP.md) for:
+See [DEVELOPER_SETUP.md](./docs/DEVELOPER_SETUP.md) for:
 - Development scripts
 - Project structure
 - Testing procedures
@@ -100,14 +100,14 @@ vercel --prod
 ## Documentation
 
 ### Setup & Development
-- [Developer Setup Guide](./DEVELOPER_SETUP.md) - Complete setup instructions
+- [Developer Setup Guide](./docs/DEVELOPER_SETUP.md) - Complete setup instructions
 - [Deployment Guide](./docs/Deployment-Guide.md) - Production deployment instructions
 - [Architecture](./docs/Architecture.md) - System architecture (v3.0 with Phase 6 & Auth)
 - [Quick Testing Guide](./docs/Quick-Testing-Guide.md) - Manual testing procedures
 
 ### Testing
-- [Testing Framework Guide](./docs/Testing-Framework-Usage-Guide.md) - Automated dialogue quality testing
-- [Socratic Evaluation Checklist](./docs/Socratic-Evaluation-Checklist.md) - Evaluation criteria
+- [Testing Framework Guide](./docs/dialogue-testing/Testing-Framework-Usage-Guide.md) - Automated dialogue quality testing
+- [Socratic Evaluation Checklist](./docs/dialogue-testing/Socratic-Evaluation-Checklist.md) - Evaluation criteria
 
 ### Planning
 - [PRD](./docs/PRD.md) - Product requirements document
